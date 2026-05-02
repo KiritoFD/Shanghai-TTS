@@ -1,0 +1,12 @@
+{
+  "api_key": "set-me-via-local-copy-or-env",
+  "api_base": "https://integrate.api.nvidia.com/v1",
+  "model": "moonshotai/kimi-k2.5",
+  "temperature": 0.0,
+  "max_tokens": 3200,
+  "batch_size": 8,
+  "timeout_s": 180,
+  "max_retries": 3,
+  "launch_interval_s": 2.0,
+  "max_in_flight": 10
+}

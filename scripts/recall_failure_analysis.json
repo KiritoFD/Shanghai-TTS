@@ -1,0 +1,1846 @@
+{
+  "summary": {
+    "total": 200,
+    "with_targets": 170,
+    "hit1": 114,
+    "hit1_rate": 0.6706,
+    "failures": 56
+  },
+  "failures": [
+    {
+      "query": "口语里表扬颜色",
+      "variants": [
+        "口语里表扬颜色"
+      ],
+      "target_ids": [
+        11150,
+        13402,
+        14343
+      ],
+      "result_ids_top5": [
+        13839,
+        11150,
+        15205,
+        10863,
+        8001
+      ],
+      "result_top5_shanghai": [
+        "【看颜色】",
+        "【清一色】",
+        "【要知心里事，但听口中言】",
+        "【褪颜色】",
+        "【着色】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 7
+    },
+    {
+      "query": "放心吧这个说法自然吗",
+      "variants": [
+        "放心吧说法自然吗",
+        "放心吧说法自然",
+        "放心吧法自然吗"
+      ],
+      "target_ids": [
+        10071,
+        11436,
+        14425
+      ],
+      "result_ids_top5": [
+        14710,
+        10071,
+        14425,
+        12990,
+        14705
+      ],
+      "result_top5_shanghai": [
+        "【心定自然凉】",
+        "【放心】",
+        "【放心托胆】",
+        "【自然】",
+        "【习惯成自然】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 10
+    },
+    {
+      "query": "购买界面到底怎么说",
+      "variants": [
+        "购买界面到底",
+        "购买界面"
+      ],
+      "target_ids": [
+        277,
+        4589,
+        4593
+      ],
+      "result_ids_top5": [
+        15207,
+        15097,
+        11587,
+        10466,
+        3894
+      ],
+      "result_top5_shanghai": [
+        "【脑子勿转弯，一根筋到底】",
+        "【打碎砂锅问到底】",
+        "【着底】",
+        "【话到家】",
+        "【买米】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": true,
+      "first_correct_rank": 8,
+      "query_len": 9
+    },
+    {
+      "query": "它购买它到底怎么说",
+      "variants": [
+        "它购买它到底",
+        "购买"
+      ],
+      "target_ids": [
+        3894,
+        4589,
+        4593
+      ],
+      "result_ids_top5": [
+        277,
+        4589,
+        4593,
+        4841,
+        7088
+      ],
+      "result_top5_shanghai": [
+        "【旺情大派送】",
+        "【商品房】",
+        "【现房】",
+        "【包清工】",
+        "【啃老族】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 9
+    },
+    {
+      "query": "关闭价格这两个字怎么说",
+      "variants": [
+        "关闭价格这两个字"
+      ],
+      "target_ids": [
+        9988
+      ],
+      "result_ids_top5": [
+        2098,
+        271,
+        2099,
+        2074,
+        2086
+      ],
+      "result_top5_shanghai": [
+        "【限价】",
+        "【价位】",
+        "【抬价】",
+        "【开价】",
+        "【一口价】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": true,
+      "first_correct_rank": 7,
+      "query_len": 11
+    },
+    {
+      "query": "计划空间用上海话怎么讲",
+      "variants": [
+        "计划空间用",
+        "计划空间"
+      ],
+      "target_ids": [
+        10463,
+        10474,
+        10617
+      ],
+      "result_ids_top5": [
+        14488,
+        10474,
+        10617,
+        10463,
+        10874
+      ],
+      "result_top5_shanghai": [
+        "【前吃后空】",
+        "【算计】",
+        "【脱空】",
+        "【泡汤】",
+        "【脱空】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 11
+    },
+    {
+      "query": "他维修你们到底怎么说",
+      "variants": [
+        "他维修你们到底",
+        "维修们"
+      ],
+      "target_ids": [
+        9993,
+        10083,
+        12836
+      ],
+      "result_ids_top5": [
+        15207,
+        15097,
+        14647,
+        15020,
+        10466
+      ],
+      "result_top5_shanghai": [
+        "【脑子勿转弯，一根筋到底】",
+        "【打碎砂锅问到底】",
+        "【敲钉转脚】",
+        "【送佛送到西天】",
+        "【话到家】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": true,
+      "first_correct_rank": 6,
+      "query_len": 10
+    },
+    {
+      "query": "想问下提醒我下午三点开会",
+      "variants": [
+        "提醒我下午三点开会",
+        "提醒下午三点开会"
+      ],
+      "target_ids": [
+        8616,
+        10904,
+        14004
+      ],
+      "result_ids_top5": [
+        12310,
+        7315,
+        1916,
+        1417,
+        1416
+      ],
+      "result_top5_shanghai": [
+        "【十三点的搭】",
+        "【B拆开】",
+        "【开秤】",
+        "【下半日】",
+        "【下半天】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": false,
+      "first_correct_rank": 13,
+      "query_len": 12
+    },
+    {
+      "query": "安排同事这样讲对吗",
+      "variants": [
+        "安排同事这样讲对吗",
+        "安排同事这样讲对",
+        "安排同事吗"
+      ],
+      "target_ids": [
+        10525,
+        12543,
+        12557
+      ],
+      "result_ids_top5": [
+        10242,
+        6498,
+        10525,
+        10912,
+        8546
+      ],
+      "result_top5_shanghai": [
+        "【抽人】",
+        "【做丧事】",
+        "【调排】",
+        "【勿对了】",
+        "【有节目】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 3,
+      "query_len": 9
+    },
+    {
+      "query": "状态有点粗鲁怎么说",
+      "variants": [
+        "状态有点粗鲁"
+      ],
+      "target_ids": [
+        11627,
+        11628,
+        11933
+      ],
+      "result_ids_top5": [
+        11376,
+        12861,
+        14577,
+        11627,
+        11746
+      ],
+      "result_top5_shanghai": [
+        "【粗鲁】",
+        "【有点】",
+        "【粗手粗脚】",
+        "【武腔】",
+        "【蛮横】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": true,
+      "first_correct_rank": 4,
+      "query_len": 9
+    },
+    {
+      "query": "请看收拾电梯是不是短语",
+      "variants": [
+        "收拾电梯是不是短语",
+        "收拾电梯短语"
+      ],
+      "target_ids": [
+        9286
+      ],
+      "result_ids_top5": [
+        4559,
+        13490,
+        9286,
+        12651,
+        15152
+      ],
+      "result_top5_shanghai": [
+        "【电梯间】",
+        "【勿收场】",
+        "【收捉】",
+        "【独独】",
+        "【骗人上楼拔短梯】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 3,
+      "query_len": 11
+    },
+    {
+      "query": "出售理由这个说法自然吗",
+      "variants": [
+        "出售理由说法自然吗",
+        "出售理由说法自然",
+        "出售理由法自然吗"
+      ],
+      "target_ids": [
+        8746,
+        8747,
+        13600
+      ],
+      "result_ids_top5": [
+        12990,
+        8747,
+        1974,
+        14710,
+        14753
+      ],
+      "result_top5_shanghai": [
+        "【自然】",
+        "【理由】",
+        "【处理品】",
+        "【心定自然凉】",
+        "【树大自然直】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 11
+    },
+    {
+      "query": "凉快这个词啥意思",
+      "variants": [
+        "凉快"
+      ],
+      "target_ids": [
+        851,
+        11244,
+        11246
+      ],
+      "result_ids_top5": [
+        37,
+        11246,
+        11244,
+        851,
+        14710
+      ],
+      "result_top5_shanghai": [
+        "【风凉日脚】",
+        "【风凉】",
+        "【荫凉】",
+        "【荫凉头】",
+        "【心定自然凉】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 8
+    },
+    {
+      "query": "上海话：清理客服",
+      "variants": [
+        "清理客服"
+      ],
+      "target_ids": [
+        2013
+      ],
+      "result_ids_top5": [
+        8883,
+        15200,
+        14225,
+        2013,
+        6861
+      ],
+      "result_top5_shanghai": [
+        "【拎清】",
+        "【秀才碰着兵，有理讲勿清】",
+        "【头势清爽】",
+        "【盘货】",
+        "【中介】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": true,
+      "first_correct_rank": 4,
+      "query_len": 8
+    },
+    {
+      "query": "别人专门批准他这个词怎么讲",
+      "variants": [
+        "别人专门批准他",
+        "别人专门批准"
+      ],
+      "target_ids": [
+        12939
+      ],
+      "result_ids_top5": [
+        12624,
+        12625,
+        14093,
+        12626,
+        10334
+      ],
+      "result_top5_shanghai": [
+        "【别人】",
+        "【旁人】",
+        "【七讲八讲】",
+        "【别人家】",
+        "【挨上门】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": false,
+      "first_correct_rank": -1,
+      "query_len": 13
+    },
+    {
+      "query": "如果要说虚假呢",
+      "variants": [
+        "如果要说虚假呢",
+        "如果要说虚假",
+        "如果虚假呢"
+      ],
+      "target_ids": [
+        10477,
+        10608,
+        14743
+      ],
+      "result_ids_top5": [
+        13196,
+        13206,
+        13209,
+        14421,
+        10553
+      ],
+      "result_top5_shanghai": [
+        "【要是……葛末】",
+        "【假使讲】",
+        "【是得】",
+        "【侪是假个】",
+        "【当伊假个】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": true,
+      "first_correct_rank": 9,
+      "query_len": 7
+    },
+    {
+      "query": "平时大家怎么说别扭",
+      "variants": [
+        "平时大家别扭"
+      ],
+      "target_ids": [
+        8820,
+        9607
+      ],
+      "result_ids_top5": [
+        12622,
+        14720,
+        8820,
+        5224,
+        9607
+      ],
+      "result_top5_shanghai": [
+        "【大家】",
+        "【有饭大家吃】",
+        "【斗气】",
+        "【大家大当】",
+        "【扭扭怩怩】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 3,
+      "query_len": 9
+    },
+    {
+      "query": "请看借用退款是不是短语",
+      "variants": [
+        "借用退款是不是短语",
+        "借退款短语"
+      ],
+      "target_ids": [
+        2010,
+        10284
+      ],
+      "result_ids_top5": [
+        4843,
+        2010,
+        10284,
+        14980,
+        84
+      ],
+      "result_top5_shanghai": [
+        "【房贷】",
+        "【退货】",
+        "【借脱】",
+        "【多借债，穷得快】",
+        "【本案】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 11
+    },
+    {
+      "query": "一般怎么说更换充电器",
+      "variants": [
+        "一般更换充电器"
+      ],
+      "target_ids": [
+        5477,
+        5478,
+        5479
+      ],
+      "result_ids_top5": [
+        7979,
+        5462,
+        5478,
+        5498,
+        5468
+      ],
+      "result_top5_shanghai": [
+        "【充电】",
+        "【继电器】",
+        "【朴落】",
+        "【电热饼】",
+        "【应急灯】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 3,
+      "query_len": 10
+    },
+    {
+      "query": "连接老师这样讲对吗",
+      "variants": [
+        "连接老师这样讲对吗",
+        "连接老师这样讲对",
+        "连接老师吗"
+      ],
+      "target_ids": [
+        10111,
+        10912,
+        13265
+      ],
+      "result_ids_top5": [
+        7910,
+        8249,
+        10111,
+        10912,
+        10673
+      ],
+      "result_top5_shanghai": [
+        "【老师】",
+        "【接口令】",
+        "【连上去】",
+        "【勿对了】",
+        "【买账】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 3,
+      "query_len": 9
+    },
+    {
+      "query": "有点尴尬怎么表达",
+      "variants": [
+        "有点尴尬"
+      ],
+      "target_ids": [
+        11498,
+        11499,
+        11500
+      ],
+      "result_ids_top5": [
+        6047,
+        11499,
+        11500,
+        12861,
+        7227
+      ],
+      "result_top5_shanghai": [
+        "【尴尬相】",
+        "【尴里尴尬】",
+        "【尴里勿尴尬】",
+        "【有点】",
+        "【尴尬人】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 8
+    },
+    {
+      "query": "联系功能这个说法自然吗",
+      "variants": [
+        "联系功能说法自然吗",
+        "联系功能说法自然",
+        "联系功能法自然吗"
+      ],
+      "target_ids": [
+        8570,
+        10309,
+        12990
+      ],
+      "result_ids_top5": [
+        14710,
+        12990,
+        14753,
+        14705,
+        15027
+      ],
+      "result_top5_shanghai": [
+        "【心定自然凉】",
+        "【自然】",
+        "【树大自然直】",
+        "【习惯成自然】",
+        "【桥归桥，路归路】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 11
+    },
+    {
+      "query": "我及时支付她是不是词组",
+      "variants": [
+        "我及时支付她是不是词组",
+        "及时支付她是不是词组",
+        "及时支付词组"
+      ],
+      "target_ids": [
+        8505,
+        12042,
+        14068
+      ],
+      "result_ids_top5": [
+        2113,
+        15002,
+        14068,
+        2178,
+        8505
+      ],
+      "result_top5_shanghai": [
+        "【付账】",
+        "【拆东墙，补西墙】",
+        "【一时上头】",
+        "【脚步钿】",
+        "【结交】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 3,
+      "query_len": 11
+    },
+    {
+      "query": "及时下载一下邻居是什么意思啊",
+      "variants": [
+        "及时下载一下邻居啊",
+        "及时下载一下邻居",
+        "及时下载邻居啊"
+      ],
+      "target_ids": [
+        6700,
+        6701,
+        6702
+      ],
+      "result_ids_top5": [
+        15121,
+        6700,
+        6702,
+        6701,
+        6703
+      ],
+      "result_top5_shanghai": [
+        "【远亲勿如近乡邻】",
+        "【邻舍】",
+        "【邻舍隔壁】",
+        "【隔壁邻舍】",
+        "【乡邻】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 14
+    },
+    {
+      "query": "启动证件什么意思",
+      "variants": [
+        "启动证件什么意思"
+      ],
+      "target_ids": [
+        5461,
+        7870,
+        7873
+      ],
+      "result_ids_top5": [
+        8773,
+        13907,
+        8919,
+        14913,
+        8545
+      ],
+      "result_top5_shanghai": [
+        "【啥路道】",
+        "【啥讲张】",
+        "【侬哪能意思】",
+        "【一句进，一句出】",
+        "【小意思】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": true,
+      "first_correct_rank": 6,
+      "query_len": 8
+    },
+    {
+      "query": "暂时上海话怎么说",
+      "variants": [
+        "暂时"
+      ],
+      "target_ids": [
+        12922,
+        12925,
+        14070
+      ],
+      "result_ids_top5": [
+        4599,
+        7977,
+        2570,
+        6495,
+        15077
+      ],
+      "result_top5_shanghai": [
+        "【过渡房】",
+        "【关饭学】",
+        "【搁浅】",
+        "【殡仪馆】",
+        "【大丈夫能屈能伸】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": true,
+      "first_correct_rank": 6,
+      "query_len": 8
+    },
+    {
+      "query": "上海话：说不清",
+      "variants": [
+        "说不清",
+        "不清"
+      ],
+      "target_ids": [
+        6138,
+        6141,
+        12211
+      ],
+      "result_ids_top5": [
+        14188,
+        10670,
+        13760,
+        10202,
+        10194
+      ],
+      "result_top5_shanghai": [
+        "【勿清勿爽】",
+        "【搞勿清爽】",
+        "【拎勿清】",
+        "【绕勿清爽】",
+        "【缠勿清】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": true,
+      "first_correct_rank": 6,
+      "query_len": 7
+    },
+    {
+      "query": "请问台风什么时候来",
+      "variants": [
+        "台风什么时候来"
+      ],
+      "target_ids": [
+        12598,
+        12599,
+        12612
+      ],
+      "result_ids_top5": [
+        874,
+        12612,
+        14584,
+        875,
+        12599
+      ],
+      "result_top5_shanghai": [
+        "【台风】",
+        "【几时】",
+        "【随时随地】",
+        "【风潮】",
+        "【啥个辰光】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 9
+    },
+    {
+      "query": "表扬习惯用上海话怎么讲",
+      "variants": [
+        "表扬习惯用",
+        "表扬习惯"
+      ],
+      "target_ids": [
+        144,
+        12956,
+        12963
+      ],
+      "result_ids_top5": [
+        14705,
+        8149,
+        11513,
+        6069,
+        14932
+      ],
+      "result_top5_shanghai": [
+        "【习惯成自然】",
+        "【口头禅】",
+        "【勿惯】",
+        "【慢心肠】",
+        "【三句勿离本行】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": true,
+      "first_correct_rank": 6,
+      "query_len": 11
+    },
+    {
+      "query": "代码报错了求助",
+      "variants": [
+        "代码报错了求助"
+      ],
+      "target_ids": [
+        8622,
+        10198,
+        10369
+      ],
+      "result_ids_top5": [
+        15108,
+        10198,
+        8926,
+        8024,
+        14989
+      ],
+      "result_top5_shanghai": [
+        "【吃仔对门谢隔壁】",
+        "【缠错】",
+        "【朝侬拜】",
+        "【报名】",
+        "【求人勿如求己】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 7
+    },
+    {
+      "query": "请看搜索网络是不是短语",
+      "variants": [
+        "搜索网络是不是短语",
+        "搜索网络短语"
+      ],
+      "target_ids": [
+        7868,
+        7892,
+        10628
+      ],
+      "result_ids_top5": [
+        7066,
+        10629,
+        10628,
+        5546,
+        4123
+      ],
+      "result_top5_shanghai": [
+        "【电盲】",
+        "【拉网】",
+        "【总动员】",
+        "【网线】",
+        "【短衫】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 3,
+      "query_len": 11
+    },
+    {
+      "query": "帮忙问下加入设计咋说",
+      "variants": [
+        "帮忙问下加入设计咋说",
+        "帮忙问下加入设计咋"
+      ],
+      "target_ids": [
+        1902,
+        4467,
+        13936
+      ],
+      "result_ids_top5": [
+        10240,
+        8821,
+        10241,
+        13956,
+        9992
+      ],
+      "result_top5_shanghai": [
+        "【帮忙】",
+        "【帮倒忙】",
+        "【帮衬】",
+        "【黑吃黑】",
+        "【噢声能】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": true,
+      "first_correct_rank": 9,
+      "query_len": 10
+    },
+    {
+      "query": "推迟颜色算短语吗",
+      "variants": [
+        "推迟颜色算短语吗",
+        "推迟颜色算短语"
+      ],
+      "target_ids": [
+        10863
+      ],
+      "result_ids_top5": [
+        13839,
+        10863,
+        7967,
+        8001,
+        11182
+      ],
+      "result_top5_shanghai": [
+        "【看颜色】",
+        "【褪颜色】",
+        "【迟到】",
+        "【着色】",
+        "【咖啡色】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 8
+    },
+    {
+      "query": "我想表达不太对劲",
+      "variants": [
+        "我想表达不太对劲",
+        "想表达不太对劲",
+        "表达不太劲"
+      ],
+      "target_ids": [
+        10516,
+        10657,
+        11309
+      ],
+      "result_ids_top5": [
+        10531,
+        8942,
+        10657,
+        8732,
+        10516
+      ],
+      "result_top5_shanghai": [
+        "【对劲】",
+        "【去死】",
+        "【勿局】",
+        "【有个性】",
+        "【对勿拢头】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 3,
+      "query_len": 8
+    },
+    {
+      "query": "我想表达“不合适”",
+      "variants": [
+        "我想表达“不合适”",
+        "想表达“不合适”",
+        "表达“不合适”",
+        "我想表达",
+        "不合适"
+      ],
+      "target_ids": [
+        8865,
+        10516,
+        11034
+      ],
+      "result_ids_top5": [
+        10657,
+        14053,
+        8942,
+        10516,
+        11464
+      ],
+      "result_top5_shanghai": [
+        "【勿局】",
+        "【一个勿对】",
+        "【去死】",
+        "【对勿拢头】",
+        "【跟脚】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": true,
+      "first_correct_rank": 4,
+      "query_len": 9
+    },
+    {
+      "query": "感觉特别虚假",
+      "variants": [
+        "感觉特别虚假"
+      ],
+      "target_ids": [
+        10477,
+        11512,
+        14743
+      ],
+      "result_ids_top5": [
+        12821,
+        12297,
+        14743,
+        10477,
+        7122
+      ],
+      "result_top5_shanghai": [
+        "【特别】",
+        "【特里特别】",
+        "【卖狗皮膏药】",
+        "【假装】",
+        "【人妖】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 3,
+      "query_len": 6
+    },
+    {
+      "query": "麻烦问下用不上怎么说",
+      "variants": [
+        "用不上",
+        "不上"
+      ],
+      "target_ids": [
+        10915
+      ],
+      "result_ids_top5": [
+        15169,
+        9887,
+        11514,
+        13484,
+        13483
+      ],
+      "result_top5_shanghai": [
+        "【勿上高山，哪显平地】",
+        "【勿上】",
+        "【勿上品】",
+        "【勿上路】",
+        "【勿上劲】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": false,
+      "first_correct_rank": -1,
+      "query_len": 10
+    },
+    {
+      "query": "开心这个词怎么讲",
+      "variants": [
+        "开心"
+      ],
+      "target_ids": [
+        11259,
+        13387,
+        13734
+      ],
+      "result_ids_top5": [
+        7096,
+        11259,
+        13734,
+        13387,
+        14553
+      ],
+      "result_top5_shanghai": [
+        "【开心果】",
+        "【开心】",
+        "【穷开心】",
+        "【一开心】",
+        "【眯花眼笑】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 8
+    },
+    {
+      "query": "检查成本咋说",
+      "variants": [
+        "检查成本咋说",
+        "检查成本咋"
+      ],
+      "target_ids": [
+        2067
+      ],
+      "result_ids_top5": [
+        2057,
+        2480,
+        10529,
+        12725,
+        13936
+      ],
+      "result_top5_shanghai": [
+        "【查账】",
+        "【查票】",
+        "【抽检】",
+        "【恰恰叫】",
+        "【搭节目】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": false,
+      "first_correct_rank": 13,
+      "query_len": 6
+    },
+    {
+      "query": "平时大家怎么说别人一直归还别人",
+      "variants": [
+        "平时大家别人一直归还别人"
+      ],
+      "target_ids": [
+        12624,
+        12625,
+        12626
+      ],
+      "result_ids_top5": [
+        15119,
+        12626,
+        12624,
+        12625,
+        12622
+      ],
+      "result_top5_shanghai": [
+        "【买个炮仗别人放】",
+        "【别人家】",
+        "【别人】",
+        "【旁人】",
+        "【大家】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 15
+    },
+    {
+      "query": "我想表达修复病人",
+      "variants": [
+        "我想表达修复病人",
+        "想表达修复病人",
+        "表达修复病人"
+      ],
+      "target_ids": [
+        170
+      ],
+      "result_ids_top5": [
+        6298,
+        14156,
+        6273,
+        8732,
+        14364
+      ],
+      "result_top5_shanghai": [
+        "【转方】",
+        "【千思万想】",
+        "【看舌苔】",
+        "【有个性】",
+        "【更转落转】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": false,
+      "first_correct_rank": 19,
+      "query_len": 8
+    },
+    {
+      "query": "这个东西有点清楚怎么说",
+      "variants": [
+        "东西有点清楚"
+      ],
+      "target_ids": [
+        8883,
+        10670,
+        11643
+      ],
+      "result_ids_top5": [
+        12861,
+        12172,
+        11098,
+        8527,
+        13390
+      ],
+      "result_top5_shanghai": [
+        "【有点】",
+        "【笔笃生清】",
+        "【清爽】",
+        "【有数】",
+        "【一本账】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": true,
+      "first_correct_rank": 7,
+      "query_len": 11
+    },
+    {
+      "query": "想得出来用上海话怎么讲",
+      "variants": [
+        "想得出来用",
+        "得出来"
+      ],
+      "target_ids": [
+        9528,
+        12262,
+        13808
+      ],
+      "result_ids_top5": [
+        13900,
+        13902,
+        13240,
+        12221,
+        12877
+      ],
+      "result_top5_shanghai": [
+        "【掼得出】",
+        "【野得出】",
+        "【得来】",
+        "【满进满出】",
+        "【本则来】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": true,
+      "first_correct_rank": 6,
+      "query_len": 11
+    },
+    {
+      "query": "不顺口什么意思",
+      "variants": [
+        "不顺口什么意思"
+      ],
+      "target_ids": [
+        9940,
+        14913,
+        15052
+      ],
+      "result_ids_top5": [
+        8473,
+        15052,
+        14913,
+        8545,
+        13907
+      ],
+      "result_top5_shanghai": [
+        "【勿好意思】",
+        "【粳勿好，糯勿好】",
+        "【一句进，一句出】",
+        "【小意思】",
+        "【啥讲张】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 7
+    },
+    {
+      "query": "今天心情很难看怎么说",
+      "variants": [
+        "今天心情很难看"
+      ],
+      "target_ids": [
+        6020,
+        6022,
+        11287
+      ],
+      "result_ids_top5": [
+        11112,
+        11113,
+        11366,
+        6020,
+        8710
+      ],
+      "result_top5_shanghai": [
+        "【难看】",
+        "【难看相】",
+        "【难看相】",
+        "【心境】",
+        "【难看(相)】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": true,
+      "first_correct_rank": 4,
+      "query_len": 10
+    },
+    {
+      "query": "真不好说如何表达",
+      "variants": [
+        "真不好说如何表达",
+        "真不好如何表达"
+      ],
+      "target_ids": [
+        8609,
+        8635,
+        11300
+      ],
+      "result_ids_top5": [
+        8488,
+        8635,
+        15191,
+        8921,
+        11306
+      ],
+      "result_top5_shanghai": [
+        "【罪过罪过】",
+        "【难讲个】",
+        "【真人面前勿好说假话】",
+        "【好好叫好𠲎】",
+        "【难过】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 8
+    },
+    {
+      "query": "说明态度，这个用上海话怎么表达",
+      "variants": [
+        "说明态度 用上海话",
+        "明态度 上海话",
+        "说明态度",
+        "用上海话"
+      ],
+      "target_ids": [
+        5983,
+        9943,
+        14337
+      ],
+      "result_ids_top5": [
+        7109,
+        7110,
+        14337,
+        12545,
+        9878
+      ],
+      "result_top5_shanghai": [
+        "【上海男人】",
+        "【上海小男人】",
+        "【好说好话】",
+        "【迭个】",
+        "【归去】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 3,
+      "query_len": 15
+    },
+    {
+      "query": "投诉证件算短语吗",
+      "variants": [
+        "投诉证件算短语吗",
+        "投诉证件算短语"
+      ],
+      "target_ids": [
+        7870,
+        7873,
+        13898
+      ],
+      "result_ids_top5": [
+        14464,
+        7898,
+        7897,
+        8844,
+        13898
+      ],
+      "result_top5_shanghai": [
+        "【是长是短】",
+        "【短消息】",
+        "【短来短去】",
+        "【一个K司】",
+        "【掼派司】"
+      ],
+      "hit1": false,
+      "hit3": false,
+      "hit10": true,
+      "first_correct_rank": 5,
+      "query_len": 8
+    },
+    {
+      "query": "删除计划这个词啥意思",
+      "variants": [
+        "删除计划"
+      ],
+      "target_ids": [
+        10463,
+        10474,
+        11495
+      ],
+      "result_ids_top5": [
+        10621,
+        10474,
+        11495,
+        14488,
+        10463
+      ],
+      "result_top5_shanghai": [
+        "【脱现】",
+        "【算计】",
+        "【挜空】",
+        "【前吃后空】",
+        "【泡汤】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 2,
+      "query_len": 10
+    },
+    {
+      "query": "这个词：害怕",
+      "variants": [
+        "害怕"
+      ],
+      "target_ids": [
+        8695,
+        12045,
+        14274
+      ],
+      "result_ids_top5": [
+        12046,
+        14431,
+        12045,
+        8695,
+        14325
+      ],
+      "result_top5_shanghai": [
+        "【怕丝丝】",
+        "【怕人势势】",
+        "【怕势势】",
+        "【怕人势势】",
+        "【汗毛淋淋】"
+      ],
+      "hit1": false,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 3,
+      "query_len": 6
+    }
+  ],
+  "successes_sample": [
+    {
+      "query": "不值当！！！",
+      "variants": [
+        "不值当"
+      ],
+      "target_ids": [
+        13906,
+        14564,
+        14937
+      ],
+      "result_ids_top5": [
+        14937,
+        13906,
+        14564,
+        14936,
+        10196
+      ],
+      "result_top5_shanghai": [
+        "【三钿勿值两钿】",
+        "【啥犯着】",
+        "【啥个烦着】",
+        "【三钿勿作两钿】",
+        "【呒缠头】"
+      ],
+      "hit1": true,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 1,
+      "query_len": 6
+    },
+    {
+      "query": "尽快收拾功能怎么表达",
+      "variants": [
+        "尽快收拾功能"
+      ],
+      "target_ids": [
+        3938,
+        9286,
+        14133
+      ],
+      "result_ids_top5": [
+        9286,
+        13490,
+        10719,
+        14403,
+        14133
+      ],
+      "result_top5_shanghai": [
+        "【收捉】",
+        "【勿收场】",
+        "【收功】",
+        "【拆洋烂污】",
+        "【三脚两手】"
+      ],
+      "hit1": true,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 1,
+      "query_len": 10
+    },
+    {
+      "query": "他们最好拒绝你们咋讲",
+      "variants": [
+        "他们最好拒绝你们咋讲",
+        "们最好拒绝们咋"
+      ],
+      "target_ids": [
+        7448,
+        13662,
+        14298
+      ],
+      "result_ids_top5": [
+        14298,
+        13662,
+        8473,
+        7448,
+        12525
+      ],
+      "result_top5_shanghai": [
+        "【吃弹皮弓】",
+        "【吃弹弓】",
+        "【勿好意思】",
+        "【死腔】",
+        "【㑚个】"
+      ],
+      "hit1": true,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 1,
+      "query_len": 10
+    },
+    {
+      "query": "立刻怎么讲",
+      "variants": [
+        "立刻"
+      ],
+      "target_ids": [
+        12914,
+        12917,
+        14218
+      ],
+      "result_ids_top5": [
+        12917,
+        14218,
+        14510,
+        14068,
+        9394
+      ],
+      "result_top5_shanghai": [
+        "【立刻】",
+        "【立时立刻】",
+        "【顿时立刻】",
+        "【一时上头】",
+        "【闪人】"
+      ],
+      "hit1": true,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 1,
+      "query_len": 5
+    },
+    {
+      "query": "这个应该怎么讲挺不错",
+      "variants": [
+        "应该挺不错",
+        "挺不错"
+      ],
+      "target_ids": [
+        13062,
+        13063,
+        13064
+      ],
+      "result_ids_top5": [
+        13062,
+        13064,
+        13063,
+        10067,
+        2058
+      ],
+      "result_top5_shanghai": [
+        "【应该】",
+        "【该应】",
+        "【应当】",
+        "【勿作兴】",
+        "【明份账】"
+      ],
+      "hit1": true,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 1,
+      "query_len": 10
+    },
+    {
+      "query": "麻烦问下满意怎么说",
+      "variants": [
+        "满意"
+      ],
+      "target_ids": [
+        10015,
+        10507,
+        11279
+      ],
+      "result_ids_top5": [
+        11279,
+        10015,
+        232,
+        10017,
+        10507
+      ],
+      "result_top5_shanghai": [
+        "【满意】",
+        "【中意】",
+        "【回头生意】",
+        "【勿称心】",
+        "【包管】"
+      ],
+      "hit1": true,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 1,
+      "query_len": 9
+    },
+    {
+      "query": "能不能手机没信号",
+      "variants": [
+        "能不能手机没信号",
+        "手机没信号"
+      ],
+      "target_ids": [
+        5539,
+        7875,
+        10886
+      ],
+      "result_ids_top5": [
+        5539,
+        7875,
+        5544,
+        398,
+        10886
+      ],
+      "result_top5_shanghai": [
+        "【手机】",
+        "【手机】",
+        "【手机座】",
+        "【信骚扰】",
+        "【呒没】"
+      ],
+      "hit1": true,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 1,
+      "query_len": 8
+    },
+    {
+      "query": "上海话：真要命",
+      "variants": [
+        "真要命",
+        "真命"
+      ],
+      "target_ids": [
+        10318,
+        12794,
+        12795
+      ],
+      "result_ids_top5": [
+        12794,
+        12795,
+        10318,
+        7464,
+        14430
+      ],
+      "result_top5_shanghai": [
+        "【要命】",
+        "【要要命】",
+        "【断命】",
+        "【断命】",
+        "【性命交关】"
+      ],
+      "hit1": true,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 1,
+      "query_len": 7
+    },
+    {
+      "query": "差不多是什么意思啊",
+      "variants": [
+        "差不多啊",
+        "差不多"
+      ],
+      "target_ids": [
+        154,
+        11529,
+        12074
+      ],
+      "result_ids_top5": [
+        11529,
+        1549,
+        1571,
+        1475,
+        154
+      ],
+      "result_top5_shanghai": [
+        "【差勿多】",
+        "【一头两年】",
+        "【一头两年】",
+        "【一头两年】",
+        "【挨末样】"
+      ],
+      "hit1": true,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 1,
+      "query_len": 9
+    },
+    {
+      "query": "请看寻找一下习惯是不是短语",
+      "variants": [
+        "寻找一下习惯是不是短语",
+        "寻找习惯短语"
+      ],
+      "target_ids": [
+        6069,
+        12963,
+        14705
+      ],
+      "result_ids_top5": [
+        14705,
+        11513,
+        1863,
+        8522,
+        15124
+      ],
+      "result_top5_shanghai": [
+        "【习惯成自然】",
+        "【勿惯】",
+        "【寻生意】",
+        "【寻搭子】",
+        "【鸡蛋里向寻骨头】"
+      ],
+      "hit1": true,
+      "hit3": true,
+      "hit10": true,
+      "first_correct_rank": 1,
+      "query_len": 13
+    }
+  ]
+}

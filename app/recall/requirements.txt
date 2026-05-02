@@ -1,0 +1,7 @@
+pandas>=2.0
+torch>=2.1
+transformers>=4.45
+peft>=0.12
+bitsandbytes>=0.43
+datasets>=2.20
+hnswlib>=0.8

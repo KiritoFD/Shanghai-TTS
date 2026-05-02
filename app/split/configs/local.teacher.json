@@ -1,0 +1,12 @@
+{
+  "api_key": "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",
+  "api_base": "https://integrate.api.nvidia.com/v1",
+  "model": "moonshotai/kimi-k2.5",
+  "fallback_model": "moonshotai/kimi-k2-instruct-0905",
+  "temperature": 0.0,
+  "max_tokens": 1400,
+  "batch_size": 8,
+  "sleep_s": 1.8,
+  "timeout_s": 300,
+  "max_retries": 3
+}

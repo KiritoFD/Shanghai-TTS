@@ -1,0 +1,20 @@
+{
+  "space": "cosine",
+  "rows": 15234,
+  "dim": 1024,
+  "m": 32,
+  "ef_construction": 200,
+  "ef_search": 64,
+  "index_file": "index_hnsw.bin",
+  "base_meta": {
+    "model_name_or_path": "model/bge-m3",
+    "rows": 15234,
+    "dim": 1024,
+    "dict_csv": "app/recall/processed_results.csv",
+    "text_mode": "headword_definition",
+    "text_fields": [
+      "shanghai",
+      "definition"
+    ]
+  }
+}

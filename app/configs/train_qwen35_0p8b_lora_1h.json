@@ -1,0 +1,16 @@
+{
+  "model_name_or_path": "model/Qwen3.5-0.8B-Base",
+  "train_jsonl": "app/data/train_sft.jsonl",
+  "output_dir": "app/model_lora_qwen35_0p8b_1h",
+  "load_in_4bit": true,
+  "max_length": 512,
+  "per_device_train_batch_size": 4,
+  "gradient_accumulation_steps": 8,
+  "learning_rate": 0.0002,
+  "num_train_epochs": 1,
+  "max_steps": 120,
+  "warmup_ratio": 0.03,
+  "save_steps": 10,
+  "logging_steps": 5,
+  "seed": 42
+}

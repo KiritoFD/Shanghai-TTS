@@ -1,0 +1,21 @@
+{
+  "teacher": {
+    "api_base": "https://integrate.api.nvidia.com/v1",
+    "model": "moonshotai/kimi-k2.5",
+    "fallback_model": "moonshotai/kimi-k2-instruct-0905",
+    "temperature": 0.0,
+    "max_tokens": 2200,
+    "batch_size": 24
+  },
+  "student": {
+    "model_name": "Qwen/Qwen3.5-4B-Instruct",
+    "max_length": 512,
+    "lora_r": 16,
+    "lora_alpha": 32,
+    "lora_dropout": 0.05,
+    "learning_rate": 2e-4,
+    "epochs": 3,
+    "batch_size": 1,
+    "grad_accumulation": 16
+  }
+}

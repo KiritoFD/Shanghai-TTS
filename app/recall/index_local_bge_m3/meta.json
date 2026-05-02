@@ -1,0 +1,11 @@
+{
+  "model_name_or_path": "../../../model/bge-m3",
+  "rows": 15750,
+  "dim": 1024,
+  "dict_csv": "app/recall/processed_results.csv",
+  "text_mode": "headword_definition",
+  "text_fields": [
+    "shanghai",
+    "definition"
+  ]
+}
