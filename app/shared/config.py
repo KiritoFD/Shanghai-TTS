@@ -82,8 +82,17 @@ def load_runtime_config() -> dict[str, Any]:
     data["dictionary_csv"] = _resolve_path(data.get("dictionary_csv"))
 
     tts_model_dir = tts["model_dir"] or APP_ROOT
+    tts["default_model"] = str(tts.get("default_model", "shanghai"))
     tts["config_path"] = _resolve_path(tts.get("config_file"), tts_model_dir)
     tts["checkpoint_path"] = _resolve_path(tts.get("checkpoint_file"), tts_model_dir)
+    tts_models = tts.setdefault("models", {})
+    for model_name, model_config in list(tts_models.items()):
+        if not isinstance(model_config, dict):
+            continue
+        model_config["name"] = str(model_name)
+        model_config["label"] = str(model_config.get("label", model_name))
+        model_config["config_path"] = _resolve_path(model_config.get("config_file"), tts_model_dir)
+        model_config["checkpoint_path"] = _resolve_path(model_config.get("checkpoint_file"), tts_model_dir)
     recall["script_path"] = _resolve_path(recall.get("script_path"))
     recall["index_dir"] = _resolve_path(recall.get("index_dir"))
     recall["timeout_seconds"] = int(recall.get("timeout_seconds", 5))

@@ -5,6 +5,8 @@ import os
 import re
 import sys
 import time
+import gc
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -559,32 +561,215 @@ def _load_config(config_path: Path) -> dict:
     }
 
 
-_tts_cache: dict[str, Any] = {}
+@dataclass
+class TTSModelSpec:
+    name: str
+    label: str
+    config_path: Path
+    checkpoint_path: Path
 
 
-def get_model() -> tuple[VITSModel, dict]:
-    if _tts_cache:
-        return _tts_cache["model"], _tts_cache["config"]
+@dataclass
+class TTSModelState:
+    spec: TTSModelSpec
+    model: nn.Module | None = None
+    config: dict[str, Any] | None = None
+    device: str = "unloaded"
+    checkpoint_step: str = "?"
 
+
+_tts_models: dict[str, TTSModelState] = {}
+_default_model_name = "shanghai"
+_active_direct_model_name = "shanghai"
+
+
+def _runtime_tts_specs() -> tuple[dict[str, TTSModelSpec], str]:
     from path_config import load_runtime_config
 
     runtime_config = load_runtime_config()
-    config_path = Path(runtime_config["tts"]["config_path"])
-    checkpoint_path = Path(runtime_config["tts"]["checkpoint_path"])
+    tts_config = runtime_config.get("tts", {})
+    default_model_name = str(tts_config.get("default_model", "shanghai")).strip().lower() or "shanghai"
+    model_specs: dict[str, TTSModelSpec] = {}
+    for model_name, model_config in tts_config.get("models", {}).items():
+        if not isinstance(model_config, dict):
+            continue
+        config_path = model_config.get("config_path")
+        checkpoint_path = model_config.get("checkpoint_path")
+        if not config_path or not checkpoint_path:
+            continue
+        model_specs[str(model_name).strip().lower()] = TTSModelSpec(
+            name=str(model_name).strip().lower(),
+            label=str(model_config.get("label", model_name)),
+            config_path=Path(config_path),
+            checkpoint_path=Path(checkpoint_path),
+        )
+    if not model_specs:
+        fallback_config_path = tts_config.get("config_path")
+        fallback_checkpoint_path = tts_config.get("checkpoint_path")
+        if fallback_config_path and fallback_checkpoint_path:
+            model_specs[default_model_name] = TTSModelSpec(
+                name=default_model_name,
+                label=default_model_name,
+                config_path=Path(fallback_config_path),
+                checkpoint_path=Path(fallback_checkpoint_path),
+            )
+    return model_specs, default_model_name
 
-    config = _load_config(config_path)
-    model = _load_coqui_vits_model(config_path, checkpoint_path)
-    model.eval()
+
+def _ensure_registry() -> None:
+    global _default_model_name, _active_direct_model_name
+    specs, default_model_name = _runtime_tts_specs()
+    _default_model_name = default_model_name
+    if _active_direct_model_name not in specs:
+        _active_direct_model_name = default_model_name
+    for name, spec in specs.items():
+        state = _tts_models.get(name)
+        if state is None:
+            _tts_models[name] = TTSModelState(spec=spec)
+        else:
+            state.spec = spec
+
+
+def available_models() -> list[str]:
+    _ensure_registry()
+    return sorted(_tts_models)
+
+
+def _normalize_model_name(model_name: str | None) -> str:
+    _ensure_registry()
+    normalized = str(model_name or _default_model_name).strip().lower() or _default_model_name
+    if normalized not in _tts_models:
+        available = ", ".join(sorted(_tts_models)) or "<none>"
+        raise ValueError(f"unknown tts model={normalized}; available={available}")
+    return normalized
+
+
+def get_active_direct_model_name() -> str:
+    _ensure_registry()
+    return _active_direct_model_name
+
+
+def set_active_direct_model_name(model_name: str) -> str:
+    global _active_direct_model_name
+    normalized = _normalize_model_name(model_name)
+    _active_direct_model_name = normalized
+    return normalized
+
+
+def model_ready(model_name: str | None = None) -> bool:
+    normalized = _normalize_model_name(model_name)
+    state = _tts_models[normalized]
+    return state.spec.config_path.exists() and state.spec.checkpoint_path.exists()
+
+
+def get_model(model_name: str | None = None) -> tuple[nn.Module, dict[str, Any]]:
+    normalized = _normalize_model_name(model_name)
+    state = _tts_models[normalized]
+    if state.model is None or state.config is None:
+        target_device = "cuda" if torch.cuda.is_available() else "cpu"
+        load_model(normalized, device=target_device)
+        state = _tts_models[normalized]
+    assert state.model is not None and state.config is not None
+    return state.model, state.config
+
+
+def _device_for_new_model(device: str) -> torch.device:
+    if device == "cuda":
+        if not torch.cuda.is_available():
+            raise RuntimeError("CUDA is not available")
+        return torch.device("cuda")
+    return torch.device("cpu")
+
+
+def unload_model(model_name: str | None = None) -> dict[str, Any]:
+    normalized = _normalize_model_name(model_name)
+    state = _tts_models[normalized]
+    model = state.model
+    if state.model is not None:
+        try:
+            state.model.to(torch.device("cpu"))
+        except Exception:
+            pass
+    del model
+    state.model = None
+    state.config = None
+    state.device = "unloaded"
+    state.checkpoint_step = "?"
+    gc.collect()
     if torch.cuda.is_available():
-        model.cuda()
+        torch.cuda.synchronize()
+        torch.cuda.empty_cache()
+        if hasattr(torch.cuda, "ipc_collect"):
+            torch.cuda.ipc_collect()
+    print(f"[tts] model={normalized} unloaded")
+    return status_for_model(normalized)
 
-    _tts_cache["model"] = model
-    _tts_cache["config"] = config
-    print(f"[tts] loaded model from: {checkpoint_path} (step={_tts_cache.get('checkpoint_step', '?')})")
-    return model, config
+
+def load_model(model_name: str | None = None, *, device: str = "cpu") -> dict[str, Any]:
+    normalized = _normalize_model_name(model_name)
+    state = _tts_models[normalized]
+    target_device = device.strip().lower()
+    if target_device == "unloaded":
+        return unload_model(normalized)
+    if target_device not in {"cpu", "cuda"}:
+        raise ValueError(f"unsupported tts device: {device}")
+    if not model_ready(normalized):
+        raise FileNotFoundError(
+            f"tts assets missing for {normalized}: config={state.spec.config_path} checkpoint={state.spec.checkpoint_path}"
+        )
+
+    if state.model is None or state.config is None:
+        state.config = _load_config(state.spec.config_path)
+        state.model, state.checkpoint_step = _load_coqui_vits_model(state.spec.config_path, state.spec.checkpoint_path)
+        state.model.eval()
+
+    state.model.to(_device_for_new_model(target_device))
+    state.device = target_device
+    if target_device == "cpu":
+        torch.cuda.empty_cache()
+    print(f"[tts] model={normalized} moved to {target_device}")
+    return status_for_model(normalized)
 
 
-def _load_coqui_vits_model(config_path: Path, checkpoint_path: Path) -> nn.Module:
+def status_for_model(model_name: str | None = None) -> dict[str, Any]:
+    normalized = _normalize_model_name(model_name)
+    state = _tts_models[normalized]
+    return {
+        "name": normalized,
+        "label": state.spec.label,
+        "ready": model_ready(normalized),
+        "loaded": state.model is not None,
+        "device": state.device,
+        "config_path": str(state.spec.config_path),
+        "checkpoint_path": str(state.spec.checkpoint_path),
+        "checkpoint_step": state.checkpoint_step,
+        "active_for_direct": normalized == get_active_direct_model_name(),
+    }
+
+
+def tts_status() -> dict[str, Any]:
+    _ensure_registry()
+    return {
+        "cuda_available": torch.cuda.is_available(),
+        "cuda_memory": cuda_memory_stats(),
+        "default_model": _default_model_name,
+        "active_direct_model": get_active_direct_model_name(),
+        "models": {name: status_for_model(name) for name in sorted(_tts_models)},
+    }
+
+
+def cuda_memory_stats() -> dict[str, int] | None:
+    if not torch.cuda.is_available():
+        return None
+    return {
+        "allocated_bytes": int(torch.cuda.memory_allocated()),
+        "reserved_bytes": int(torch.cuda.memory_reserved()),
+        "max_allocated_bytes": int(torch.cuda.max_memory_allocated()),
+        "max_reserved_bytes": int(torch.cuda.max_memory_reserved()),
+    }
+
+
+def _load_coqui_vits_model(config_path: Path, checkpoint_path: Path) -> tuple[nn.Module, str]:
     # Coqui 0.27 expects this helper in older Transformers versions. It is not used
     # by VITS, but the package imports XTTS modules at import time.
     import warnings
@@ -619,20 +804,22 @@ def _load_coqui_vits_model(config_path: Path, checkpoint_path: Path) -> nn.Modul
             "Coqui VITS checkpoint did not load cleanly: "
             f"missing={load_result.missing_keys[:10]}, unexpected={load_result.unexpected_keys[:10]}"
         )
-    _tts_cache["checkpoint_step"] = checkpoint.get("step", "?") if isinstance(checkpoint, dict) else "?"
-    return model
+    checkpoint_step = str(checkpoint.get("step", "?")) if isinstance(checkpoint, dict) else "?"
+    return model, checkpoint_step
 
 
-def synthesize(text: str, output_path: str) -> None:
-    model, config = get_model()
+def synthesize(text: str, output_path: str, model_name: str | None = None) -> None:
+    normalized = _normalize_model_name(model_name)
+    model, config = get_model(normalized)
+    state = _tts_models[normalized]
     processed_text = prepare_text(text)
-    print(f"[tts] input: {text}")
-    print(f"[tts] mapped: {processed_text}")
+    print(f"[tts] model={normalized} input: {text}")
+    print(f"[tts] model={normalized} mapped: {processed_text}")
 
     ids = text_to_ids(processed_text)
     text_tensor = torch.IntTensor(ids).unsqueeze(0)
     lengths = torch.IntTensor([len(ids)])
-    if torch.cuda.is_available():
+    if state.device == "cuda":
         text_tensor = text_tensor.cuda()
         lengths = lengths.cuda()
 
@@ -649,8 +836,8 @@ def synthesize(text: str, output_path: str) -> None:
     wav_int16 = np.clip(wav * 32767, -32768, 32767).astype(np.int16)
     wavfile.write(output_path, sample_rate, wav_int16)
     elapsed = time.time() - start_time
-    print(f"[tts] wrote: {output_path} ({elapsed:.2f}s, {len(wav)/sample_rate:.2f}s audio)")
+    print(f"[tts] model={normalized} wrote: {output_path} ({elapsed:.2f}s, {len(wav)/sample_rate:.2f}s audio)")
 
 
 if __name__ == "__main__":
-    synthesize("shi33 yan55 kua33 chi21", str(ROOT / "shanghai_test.wav"))
+    synthesize("shi33 yan55 kua33 chi21", str(ROOT / "shanghai_test.wav"), model_name="shanghai")

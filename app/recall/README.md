@@ -1,40 +1,56 @@
-# Recall (Encoder + HNSW)
+# Recall (Shanghai + Shaoxing on 8088)
 
-This directory can run on its own without absolute paths.
+`app/recall/recall_service.py` now serves both recall indexes behind the same HTTP service on port `8088`.
 
-## Local Assets
+## Index Layout
 
-- Dictionary: `processed_results.csv`
-- Encoder models:
-  - `../../model/bge-m3`
+- Shanghai index: `app/recall/index_local_bge_m3`
+- Shaoxing index: `app/recall/index_shaoxing_bge_m3`
+- Shanghai source CSV: `app/recall/processed_results.csv`
+- Shaoxing source CSV: `app/data/generated/shaoxing_processed.csv`
+- Embedding model: `model/bge-m3`
 
-## Index Text
+Each index directory contains:
 
-The dense index is not built from the headword alone.
+- `meta.json`
+- `records.jsonl`
+- `embeddings.npy`
+- `index_hnsw.bin` when HNSW was built
+- `hnsw_meta.json` when HNSW was built
 
-By default, `scripts/build_vector_index.py` embeds:
+## How vector text is built
+
+`scripts/build_vector_index.py` does not embed the headword alone.
+
+Default `--text_mode headword_definition` builds the dense text as:
 
 `词条 + "。释义：" + 释义`
 
-This is controlled by `--text_mode`:
+Available modes:
 
 - `headword`
 - `definition`
 - `headword_definition` (default)
 
-So if recall quality is poor, the first thing to check is usually not "did we only index the word itself",
-but whether the online path and offline test path are using the same retrieval logic.
+That same text construction should be kept consistent between Shanghai and Shaoxing, otherwise recall quality becomes hard to compare.
 
-## Quick Start
+## How HNSW is built
 
-1. Install dependencies
+`scripts/build_hnsw_index.py` reads `embeddings.npy`, L2-normalizes vectors, then builds a cosine-space HNSW index.
 
-```bash
-cd /mnt/g/GitHub/Shanghai-TTS
-source .venv-wsl/bin/activate
-```
+Useful knobs:
 
-2. Build a vector index
+- `--m`: graph degree, default higher means larger index and usually better recall
+- `--ef_construction`: build-time search breadth
+- `--ef_search`: query-time search breadth
+
+The current runtime usually uses:
+
+- `m = 32`
+- `ef_construction = 200`
+- `ef_search = 64`
+
+## Build Shanghai index
 
 ```bash
 python app/recall/scripts/build_vector_index.py \
@@ -45,61 +61,91 @@ python app/recall/scripts/build_vector_index.py \
   --text_mode headword_definition
 ```
 
-3. Build an HNSW index
-
 ```bash
 python app/recall/scripts/build_hnsw_index.py \
   --index_dir app/recall/index_local_bge_m3 \
   --m 32 --ef_construction 200 --ef_search 64
 ```
 
-4. Run the unified interface
+## Build Shaoxing index
 
-Default mode is interactive:
+If `app/data/generated/shaoxing_processed.csv` is missing, generate it first from `merged_result.xlsx` through the app pipeline.
 
 ```bash
-python app/recall/recall_service.py
+python app/recall/scripts/build_vector_index.py \
+  --dict_csv app/data/generated/shaoxing_processed.csv \
+  --out_dir app/recall/index_shaoxing_bge_m3 \
+  --model_name_or_path model/bge-m3 \
+  --id_col 0 --sh_col 0 --def_col 4 --header infer \
+  --text_mode headword_definition
 ```
 
-If `model/bge-m3` is missing, startup auto-downloads it from ModelScope into the root `model/` directory.
+```bash
+python app/recall/scripts/build_hnsw_index.py \
+  --index_dir app/recall/index_shaoxing_bge_m3 \
+  --m 32 --ef_construction 200 --ef_search 64
+```
 
-`recall_service.py` is the current online retrieval path. It includes:
-
-- query normalization
-- query variants
-- lexical retrieval
-- sparse BM25 retrieval
-- ANN retrieval
-- rank fusion
-- lightweight reranking
-
-Older helper scripts such as `infer.py` may show weaker results because they do not fully mirror
-the online retrieval logic.
-
-API mode:
+## Run the unified service
 
 ```bash
 python app/recall/recall_service.py --mode api --port 8088
 ```
 
-Request example:
+By default it tries to load:
+
+- `--index_dir app/recall/index_local_bge_m3`
+- `--shaoxing_index_dir app/recall/index_shaoxing_bge_m3`
+
+Health check:
+
+```bash
+curl http://127.0.0.1:8088/health
+```
+
+The response now lists both loaded indexes.
+
+## Query examples
+
+Shanghai:
 
 ```bash
 curl -X POST "http://127.0.0.1:8088/recall" \
   -H "Content-Type: application/json" \
-  -d '{"query":"你好怎么说","top_k":20,"top_n":3}'
+  -d "{\"query\":\"你好怎么说\",\"source\":\"shanghai\",\"top_k\":20,\"top_n\":3}"
 ```
 
-One-shot mode:
+Shaoxing:
+
+```bash
+curl -X POST "http://127.0.0.1:8088/recall" \
+  -H "Content-Type: application/json" \
+  -d "{\"query\":\"太阳\",\"source\":\"shaoxing\",\"top_k\":20,\"top_n\":3}"
+```
+
+Accepted source aliases:
+
+- `shanghai`
+- `shanghai_csv`
+- `shaoxing`
+- `shaoxing_xlsx`
+
+## Interactive / one-shot
+
+Shanghai interactive:
+
+```bash
+python app/recall/recall_service.py --mode interactive --source shanghai
+```
+
+Shaoxing interactive:
+
+```bash
+python app/recall/recall_service.py --mode interactive --source shaoxing
+```
+
+One-shot:
 
 ```bash
 python app/recall/recall_service.py --mode once --query "你好怎么说"
-```
-
-## Full Chain Debug
-
-Use this script to inspect how the LoRA splitter cooperates with recall:
-
-```bash
-python app/recall/scripts/debug_full_chain.py --force_local --query "你好怎么说" --query "我爱你怎么说"
 ```

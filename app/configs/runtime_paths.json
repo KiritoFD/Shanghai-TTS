@@ -51,8 +51,21 @@
   },
   "tts": {
     "model_dir": "../model/vits",
-    "config_file": "config.json",
-    "checkpoint_file": "checkpoint_48000.pth"
+    "default_model": "shanghai",
+    "config_file": "config_27000.json",
+    "checkpoint_file": "checkpoint_27000.pth",
+    "models": {
+      "shanghai": {
+        "label": "上海话",
+        "config_file": "config_27000.json",
+        "checkpoint_file": "checkpoint_27000.pth"
+      },
+      "shaoxing": {
+        "label": "绍兴话",
+        "config_file": "config.json",
+        "checkpoint_file": "checkpoint_48000.pth"
+      }
+    }
   },
   "recall": {
     "script_path": "recall/recall_service.py",

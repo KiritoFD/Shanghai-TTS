@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import atexit
+import copy
+import html
 import importlib
 import importlib.util
 import json
 import logging
 import os
 import re
+import secrets
 import subprocess
 import sys
 import threading
@@ -14,6 +17,7 @@ import time
 import traceback
 import uuid
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +27,16 @@ import torch
 from flask import Flask, jsonify, render_template, request, send_from_directory, session
 from peft import PeftModel
 from cleaner_model import CleanerCoreExtractor
+from dictionary_sources import (
+    PRIMARY_SOURCE_ID,
+    SHAOXING_CSV_PATH,
+    SHAOXING_INDEX_DIR,
+    SHAOXING_SOURCE_ID,
+    SHAOXING_XLSX_PATH,
+    ensure_dense_index,
+    ensure_shaoxing_processed_csv,
+    index_complete,
+)
 from path_config import load_runtime_config
 from rag_mt import QwenRAGMTTranslator, build_lexicon_context, clean_query
 from rerank.runtime import SplitRecallReranker
@@ -92,38 +106,92 @@ TEXT_ONLY_MODE = os.getenv("WUU_TEXT_ONLY", "0") == "1"
 _synthesize_fn = None
 local_recall_engine = None
 exact_dictionary_index: dict[str, list[dict[str, Any]]] | None = None
+shaoxing_recall_engine = None
+shaoxing_exact_index: dict[str, list[dict[str, Any]]] | None = None
 COMPILE_ENABLED = bool(RUNTIME_CONFIG["llm"].get("compile_enabled", False))
 COMPILE_MODE = str(RUNTIME_CONFIG["llm"].get("compile_mode", "reduce-overhead"))
 COMPILE_CACHE_DIR = Path(RUNTIME_CONFIG["llm"].get("compile_cache_dir") or (REPO_ROOT / ".cache" / "torchinductor_split"))
 
 
-def resolve_dictionary_path() -> Path:
+def resolve_dictionary_path() -> Path | None:
     configured = Path(RUNTIME_CONFIG["data"]["dictionary_csv"])
     if configured.exists():
         return configured
-    raise FileNotFoundError(f"processed_results.csv not found: {configured}")
+    logging.warning("[dict] primary dictionary missing: %s", configured)
+    return None
 
 
 DICT_PATH = resolve_dictionary_path()
+SHAOXING_PROCESSED_PATH = ensure_shaoxing_processed_csv()
 
 
-def synthesize(text: str, output_path: str) -> None:
-    global _synthesize_fn
-    if _synthesize_fn is None:
-        module = importlib.import_module("tts_engine")
-        _synthesize_fn = getattr(module, "synthesize")
-    _synthesize_fn(text, output_path)
+def _tts_module() -> Any:
+    return importlib.import_module("tts_engine")
 
 
-def ensure_tts_model_loaded() -> None:
-    global _synthesize_fn
+def synthesize(text: str, output_path: str, model_name: str | None = None) -> None:
+    module = _tts_module()
+    synthesize_fn = getattr(module, "synthesize")
+    synthesize_fn(text, output_path, model_name=model_name)
+
+
+def ensure_tts_model_loaded(model_name: str | None = None, device: str | None = None) -> dict[str, Any] | None:
     if TEXT_ONLY_MODE:
-        return
-    module = importlib.import_module("tts_engine")
-    _synthesize_fn = getattr(module, "synthesize")
-    get_model = getattr(module, "get_model", None)
-    if callable(get_model):
-        get_model()
+        return None
+    module = _tts_module()
+    load_model = getattr(module, "load_model", None)
+    if callable(load_model):
+        target_device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        return load_model(model_name, device=target_device)
+    return None
+
+
+def set_tts_model_device(model_name: str | None = None, device: str = "cpu") -> dict[str, Any] | None:
+    if TEXT_ONLY_MODE:
+        return None
+    module = _tts_module()
+    load_model = getattr(module, "load_model", None)
+    if callable(load_model):
+        return load_model(model_name, device=device)
+    return None
+
+
+def tts_runtime_status() -> dict[str, Any]:
+    if TEXT_ONLY_MODE:
+        return {"cuda_available": torch.cuda.is_available(), "default_model": None, "active_direct_model": None, "models": {}}
+    module = _tts_module()
+    status_fn = getattr(module, "tts_status", None)
+    if callable(status_fn):
+        return status_fn()
+    return {"cuda_available": torch.cuda.is_available(), "default_model": None, "active_direct_model": None, "models": {}}
+
+
+def tts_model_ready(model_name: str) -> bool:
+    module = _tts_module()
+    ready_fn = getattr(module, "model_ready", None)
+    if callable(ready_fn):
+        return bool(ready_fn(model_name))
+    return False
+
+
+def set_tts_active_direct_model(model_name: str) -> str:
+    module = _tts_module()
+    setter = getattr(module, "set_active_direct_model_name")
+    return str(setter(model_name))
+
+
+def active_direct_tts_model() -> str:
+    module = _tts_module()
+    getter = getattr(module, "get_active_direct_model_name")
+    return str(getter())
+
+
+def tts_ready() -> bool:
+    if TEXT_ONLY_MODE:
+        return False
+    status = tts_runtime_status()
+    models = status.get("models", {})
+    return bool(models) and all(bool(item.get("ready")) for item in models.values())
 
 
 class RecallServiceManager:
@@ -440,12 +508,19 @@ class LocalQueryPreprocessor:
         return self._generate_from_prompts(prompts, max_new_tokens=max_new_tokens, temperature=temperature)
 
 
-def load_dataframe() -> pd.DataFrame:
+def empty_dictionary_frame() -> pd.DataFrame:
+    return pd.DataFrame(columns=list(range(7)))
+
+
+def load_dataframe(path: Path | None = None) -> pd.DataFrame:
     # header=0: CSV now has a header row (entry,entry_alt,romanization,ipa,definition,tone_notation,notes)
     # We read with header=0 so pandas assigns column names, but downstream code
     # uses integer column positions (row[0], row[4], row[5]) via .iloc — keep that
     # working by resetting to positional int columns after load.
-    _df = pd.read_csv(DICT_PATH, header=0, encoding="utf-8-sig")
+    csv_path = path or DICT_PATH
+    if csv_path is None or not csv_path.exists():
+        return empty_dictionary_frame()
+    _df = pd.read_csv(csv_path, header=0, encoding="utf-8-sig")
     _df.columns = list(range(len(_df.columns)))
     return _df
 
@@ -457,17 +532,34 @@ def call_recall_service(
     variants: list[str] | None = None,
     top_k: int = 20,
     top_n: int = 3,
+    source: str = "shanghai",
 ) -> tuple[list[dict[str, Any]], str]:
+    normalized_source = "shaoxing" if str(source).strip().lower() in {"shaoxing", SHAOXING_SOURCE_ID} else "shanghai"
+    target_index_dir = SHAOXING_INDEX_DIR if normalized_source == "shaoxing" else RECALL_INDEX_DIR
+    if normalized_source == "shanghai":
+        if DICT_PATH is None or not DICT_PATH.exists() or not index_complete(target_index_dir):
+            return [], ""
+    elif not index_complete(target_index_dir):
+        return [], ""
+
     def call_local_recall_engine() -> tuple[list[dict[str, Any]], str]:
-        global local_recall_engine
+        global local_recall_engine, shaoxing_recall_engine
         try:
+            if normalized_source == "shaoxing":
+                if shaoxing_recall_engine is None:
+                    logging.info("[recall] loading in-process shaoxing fallback engine from %s", SHAOXING_INDEX_DIR)
+                    from recall.engine import RecallEngine
+
+                    shaoxing_recall_engine = RecallEngine(index_dir=SHAOXING_INDEX_DIR, ann="hnsw", ef_search=64)
+                result = shaoxing_recall_engine.search(query, top_k=top_k, top_n=top_n, extra_variants=variants or [])
+                return result.get("results", []), "local_recall_engine_shaoxing"
             if local_recall_engine is None:
                 logging.info("[recall] loading in-process fallback engine from %s", RECALL_INDEX_DIR)
                 from recall.engine import RecallEngine
 
                 local_recall_engine = RecallEngine(index_dir=RECALL_INDEX_DIR, ann="hnsw", ef_search=64)
             result = local_recall_engine.search(query, top_k=top_k, top_n=top_n, extra_variants=variants or [])
-            return result.get("results", []), "local_recall_engine"
+            return result.get("results", []), "local_recall_engine_shanghai"
         except Exception as exc:
             logging.warning("[recall] local engine fallback failed: %s", exc)
             return [], ""
@@ -480,7 +572,7 @@ def call_recall_service(
     try:
         response = requests.post(
             RECALL_API_URL,
-            json={"query": query, "variants": variants or [], "top_k": top_k, "top_n": top_n},
+            json={"query": query, "source": normalized_source, "variants": variants or [], "top_k": top_k, "top_n": top_n},
             timeout=RECALL_TIMEOUT,
         )
         if response.status_code != 200:
@@ -490,7 +582,7 @@ def call_recall_service(
             return call_local_recall_engine()
         result = payload.get("result", {})
         recall_manager.warning_emitted = False
-        return result.get("results", []), "recall_api"
+        return result.get("results", []), f"recall_api_{normalized_source}"
     except Exception as exc:
         if not recall_manager.warning_emitted:
             logging.warning("[recall] request failed: %s", exc)
@@ -536,10 +628,21 @@ def local_search(df: pd.DataFrame, query: str, top_n: int = 3) -> list[dict[str,
 
 
 def sanitize_headword(text: str) -> str:
-    return text.strip().strip("[]").strip("\u3010\u3011")
+    value = str(text or "").strip()
+    value = re.sub(r"^[\[\u3010]+", "", value)
+    value = re.sub(r"[\]\u3011]+\.\d+$", "", value)
+    value = re.sub(r"[\]\u3011]+$", "", value)
+    return value.strip()
+
+
+def clean_cell_text(value: Any) -> str:
+    text = str(value or "").strip()
+    return "" if text.lower() == "nan" else text
 
 
 def find_headword_row(target: str) -> pd.Series | None:
+    if df.empty:
+        return None
     clean_target = sanitize_headword(target)
     headwords = df[0].astype(str).map(sanitize_headword)
 
@@ -554,22 +657,152 @@ def find_headword_row(target: str) -> pd.Series | None:
     return None
 
 
+def find_shaoxing_row(target: str) -> pd.Series | None:
+    if shaoxing_df.empty:
+        return None
+    clean_target = sanitize_headword(target)
+    headwords = shaoxing_df[0].astype(str).map(sanitize_headword)
+
+    exact_matches = shaoxing_df[headwords == clean_target]
+    if not exact_matches.empty:
+        return exact_matches.iloc[0]
+
+    contains_matches = shaoxing_df[headwords.str.contains(clean_target, na=False, regex=False)]
+    if not contains_matches.empty:
+        return contains_matches.iloc[0]
+    return None
+
+
+def exact_shaoxing_hits(term: str, top_n: int = 2) -> list[dict[str, Any]]:
+    query = _clean_definition_for_match(term)
+    if not query:
+        return []
+    index = build_exact_shaoxing_index()
+    return [dict(item) for item in index.get(query, [])[:top_n]]
+
+
+def _row_pinyin(row: pd.Series) -> str:
+    return clean_cell_text(row[5]) if len(row) > 5 else ""
+
+
+def source_to_tts_model(source_id: str | None) -> str:
+    return "shaoxing" if str(source_id or "").strip() == SHAOXING_SOURCE_ID else "shanghai"
+
+
+def synthesize_dictionary_audio(
+    *,
+    source_id: str,
+    headword: str,
+    pinyin: str,
+    output_path: Path,
+) -> tuple[str, str]:
+    model_name = source_to_tts_model(source_id)
+    ensure_tts_model_loaded(model_name=model_name)
+    synthesize(pinyin, str(output_path), model_name=model_name)
+    return model_name, headword
+
+
+def call_shaoxing_recall(
+    query: str,
+    variants: list[str] | None = None,
+    top_k: int = 20,
+    top_n: int = 3,
+) -> list[dict[str, Any]]:
+    if not index_complete(SHAOXING_INDEX_DIR):
+        return []
+    result_rows, _source = call_recall_service(
+        query=query,
+        variants=variants,
+        top_k=top_k,
+        top_n=top_n,
+        source="shaoxing",
+    )
+    rows: list[dict[str, Any]] = []
+    for item in result_rows:
+        headword = clean_cell_text(item.get("shanghai", ""))
+        row = find_shaoxing_row(headword)
+        rows.append(
+            {
+                "id": int(item.get("id", len(rows))),
+                "shanghai": headword,
+                "definition": clean_cell_text(item.get("definition", "")),
+                "pinyin": _row_pinyin(row) if row is not None else "",
+                "score": float(item.get("score", 0.0)),
+                "source": SHAOXING_SOURCE_ID,
+            }
+        )
+    return rows
+
+
+def shaoxing_local_search(query: str, top_n: int = 3) -> list[dict[str, Any]]:
+    if not query or shaoxing_df.empty:
+        return []
+
+    headword_hits = shaoxing_df[0].astype(str).str.contains(query, na=False, regex=False)
+    definition_hits = shaoxing_df[4].astype(str).str.contains(query, na=False, regex=False)
+    matches = shaoxing_df[headword_hits | definition_hits].copy()
+    if matches.empty:
+        return []
+
+    def score_row(row: pd.Series) -> float:
+        headword = clean_cell_text(row[0])
+        definition = clean_cell_text(row[4])
+        score = 0.0
+        if query in headword:
+            score += 2.0
+        if query in definition:
+            score += 1.0
+        if _row_pinyin(row):
+            score += 0.15
+        return score - 0.01 * len(headword)
+
+    matches["score"] = matches.apply(score_row, axis=1)
+    matches = matches.sort_values("score", ascending=False).head(top_n)
+
+    rows: list[dict[str, Any]] = []
+    for idx, row in matches.iterrows():
+        rows.append(
+            {
+                "id": int(idx),
+                "shanghai": clean_cell_text(row[0]),
+                "definition": clean_cell_text(row[4]),
+                "pinyin": _row_pinyin(row),
+                "score": float(row["score"]),
+                "source": SHAOXING_SOURCE_ID,
+            }
+        )
+    return rows
+
+
 def build_reply(results: list[dict[str, Any]]) -> str:
     if not results:
         return "\u672a\u627e\u5230\u5339\u914d\u8bcd\u6761\u3002"
 
     lines = ["\u627e\u5230\u8fd9\u4e9b\u5019\u9009\uff1a<br><br>"]
     for item in results:
-        shanghai = str(item.get("shanghai", "")).strip()
+        raw_headword = str(item.get("shanghai", "")).strip()
+        shanghai = sanitize_headword(raw_headword)
         definition = str(item.get("definition", "")).strip()
-        clean_name = sanitize_headword(shanghai).replace("\\", "\\\\").replace("'", "\\'")
-        if shanghai and not shanghai.startswith("\u3010"):
-            shanghai = f"\u3010{shanghai}\u3011"
-        lines.append(f"<b>{shanghai}</b><br>\u91ca\u4e49\uff1a{definition}<br>")
-        lines.append(
-            "<a href='javascript:void(0);' class='voice-btn' "
-            f"onclick=\"quickRead('{clean_name}')\">\u25b6 \u70b9\u6b64\u751f\u6210\u8bed\u97f3</a><br><hr>"
-        )
+        source = str(item.get("source", PRIMARY_SOURCE_ID)).strip()
+        pinyin = str(item.get("pinyin") or item.get("wu_pinyin") or "").strip()
+        safe_headword = html.escape(shanghai, quote=True)
+        safe_definition = html.escape(definition, quote=True)
+        safe_pinyin = html.escape(pinyin, quote=True)
+        safe_source = html.escape(source, quote=True)
+        if shanghai:
+            shanghai = f"\u3010{safe_headword}\u3011"
+        badge = "\u4e0a\u6d77\u8bcd\u5178" if source != SHAOXING_SOURCE_ID else "\u7ecd\u5174\u8bcd\u5178"
+        lines.append(f"<b>{shanghai}</b> <span class='result-badge'>[{badge}]</span><br>")
+        if pinyin:
+            lines.append(f"\u62fc\u97f3\uff1a{safe_pinyin}<br>")
+        lines.append(f"\u91ca\u4e49\uff1a{safe_definition}<br>")
+        if pinyin:
+            lines.append(
+                "<button type='button' class='voice-btn' "
+                f"data-headword='{safe_headword}' data-source='{safe_source}'>\u25b6 \u751f\u6210\u8bed\u97f3</button><br><hr>"
+            )
+        else:
+            lines.append("<span class='result-badge'>\u8be5\u8bcd\u6761\u6682\u65e0\u53ef\u7528\u8bfb\u97f3</span><br><hr>")
     return "".join(lines)
 
 
@@ -579,17 +812,30 @@ def build_text_only_reply(results: list[dict[str, Any]]) -> str:
 
     lines: list[str] = []
     for item in results:
-        shanghai = str(item.get("shanghai", "")).strip()
+        shanghai = sanitize_headword(str(item.get("shanghai", "")).strip())
         definition = str(item.get("definition", "")).strip()
-        if shanghai and not shanghai.startswith("\u3010"):
+        source = str(item.get("source", PRIMARY_SOURCE_ID)).strip()
+        pinyin = str(item.get("pinyin") or item.get("wu_pinyin") or "").strip()
+        if shanghai:
             shanghai = f"\u3010{shanghai}\u3011"
-        lines.append(f"{shanghai} - {definition}")
+        prefix = "[绍兴]" if source == SHAOXING_SOURCE_ID else "[上海]"
+        line = f"{prefix} {shanghai}"
+        if pinyin:
+            line += f" ({pinyin})"
+        line += f" - {definition}"
+        lines.append(line)
     return "<br>".join(lines)
 
 
 app = Flask(__name__)
-app.secret_key = "shanghainese_tts_secret_key"
+app.secret_key = os.getenv("SHANGHAI_TTS_SECRET_KEY") or secrets.token_hex(32)
+app.config.update(
+    MAX_CONTENT_LENGTH=32 * 1024,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+)
 df = load_dataframe()
+shaoxing_df = load_dataframe(SHAOXING_PROCESSED_PATH)
 preprocessor: Any | None = None
 reranker: SplitRecallReranker | None = None
 rag_mt_translators: dict[str, QwenRAGMTTranslator] = {}
@@ -603,6 +849,29 @@ _rebuild_status: dict[str, Any] = {"running": False, "progress": [], "error": No
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.after_request
+def apply_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "img-src 'self' data: blob:; "
+        "media-src 'self' blob:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self'; "
+        "connect-src 'self'; "
+        "font-src 'self' data:; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'self'"
+    )
+    if request.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.route("/api/rebuild_index", methods=["POST"])
@@ -682,12 +951,114 @@ def api_rebuild_index_status():
 
 @app.route("/api/user/confinfo", methods=["GET"])
 def api_user_confinfo():
-    return jsonify({"ok": True, "service": "shanghai-tts", "version": "local"})
+    tts_status = tts_runtime_status()
+    return jsonify(
+        {
+            "ok": True,
+            "service": "shanghai-tts",
+            "version": "local",
+            "pipeline_mode": PIPELINE_MODE,
+            "rag_mt_ready": rag_mt_ready(),
+            "legacy_preprocessor_ready": legacy_preprocessor_ready(),
+            "tts_ready": tts_ready(),
+            "tts_status": tts_status,
+            "shaoxing_index_ready": index_complete(SHAOXING_INDEX_DIR),
+        }
+    )
+
+
+@app.route("/api/tts/status", methods=["GET"])
+def api_tts_status():
+    return jsonify({"ok": True, "tts": tts_runtime_status()})
+
+
+@app.route("/api/tts/load", methods=["POST"])
+def api_tts_load():
+    payload = request.get_json(silent=True) or {}
+    model_name = str(payload.get("model", "")).strip().lower()
+    device = str(payload.get("device", "")).strip().lower() or "cpu"
+    try:
+        status = set_tts_model_device(model_name=model_name, device=device)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except FileNotFoundError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 404
+    except RuntimeError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 503
+    return jsonify({"ok": True, "model": model_name, "status": status, "tts": tts_runtime_status()})
+
+
+@app.route("/api/tts/direct_model", methods=["POST"])
+def api_tts_direct_model():
+    payload = request.get_json(silent=True) or {}
+    model_name = str(payload.get("model", "")).strip().lower()
+    try:
+        active_name = set_tts_active_direct_model(model_name)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    return jsonify({"ok": True, "active_direct_model": active_name, "tts": tts_runtime_status()})
+
+
+@app.route("/api/tts/read_headword", methods=["POST"])
+def api_tts_read_headword():
+    started = time.perf_counter()
+    payload = request.get_json(silent=True) or {}
+    source_id = str(payload.get("source", PRIMARY_SOURCE_ID)).strip() or PRIMARY_SOURCE_ID
+    headword = str(payload.get("headword", "")).strip()
+    if not headword:
+        return jsonify({"text": "缺少词条名。"}), 400
+
+    if source_id == SHAOXING_SOURCE_ID:
+        row = find_shaoxing_row(headword)
+        if row is None:
+            return jsonify({"text": f"未找到绍兴词条：{headword}"}), 404
+        pinyin = _row_pinyin(row)
+        definition = clean_cell_text(row[4]) or "暂缺"
+        display_headword = clean_cell_text(row[0]) or headword
+    else:
+        row = find_headword_row(headword)
+        if row is None:
+            return jsonify({"text": f"未找到上海词条：{headword}"}), 404
+        pinyin = clean_cell_text(row[5]) if len(row) > 5 else ""
+        definition = clean_cell_text(row[4]) or "暂缺"
+        display_headword = clean_cell_text(row[0]) or headword
+
+    if not pinyin:
+        return jsonify({"text": f"匹配到：{display_headword}<br>释义：{definition}<br>但该词条暂无可用读音。"})
+
+    model_name = source_to_tts_model(source_id)
+    if not tts_model_ready(model_name):
+        return jsonify({"text": f"{model_name} TTS 模型未就绪。"}), 503
+
+    unique_fn = f"{uuid.uuid4().hex[:8]}.wav"
+    try:
+        synthesize_dictionary_audio(
+            source_id=source_id,
+            headword=display_headword,
+            pinyin=pinyin,
+            output_path=STATIC_DIR / unique_fn,
+        )
+    except RuntimeError as exc:
+        return jsonify({"text": f"{display_headword}<br>TTS 加载失败：{exc}"}), 503
+    session["last_audio"] = {"filename": unique_fn, "word": display_headword, "source": source_id, "model": model_name}
+    return jsonify(
+        {
+            "ok": True,
+            "audio": f"/static/{unique_fn}",
+            "model": model_name,
+            "source": source_id,
+            "text": f"匹配到：{display_headword}<br>释义：{definition}",
+            "timings_ms": {"total": round((time.perf_counter() - started) * 1000, 1)},
+        }
+    )
 
 
 @app.route("/download/<filename>")
 def download_file(filename: str):
-    return send_from_directory(str(STATIC_DIR), filename, as_attachment=True)
+    safe_name = Path(filename).name
+    if safe_name != filename or not safe_name.lower().endswith(".wav"):
+        return jsonify({"text": "Invalid file name"}), 400
+    return send_from_directory(str(STATIC_DIR), safe_name, as_attachment=True)
 
 
 @app.errorhandler(404)
@@ -744,6 +1115,15 @@ def ensure_preprocessor() -> Any:
     return preprocessor
 
 
+def legacy_preprocessor_ready() -> bool:
+    backend = PREPROCESSOR_BACKEND.lower()
+    if backend == "llama_cpp":
+        return LLAMA_CPP_SERVER_PATH is not None and GGUF_MODEL_PATH is not None and GGUF_MODEL_PATH.exists()
+    if backend in {"qwen", "qwen_lora", "llm", "transformers"}:
+        return CHECKPOINT_PATH.exists() and BASE_MODEL_PATH.exists()
+    return False
+
+
 def ensure_rag_mt_translator(model_size: str | None = None) -> QwenRAGMTTranslator:
     selected_size = (model_size or RAG_MT_MODEL_SIZE or "2b").strip().lower()
     if selected_size in rag_mt_translators:
@@ -768,6 +1148,17 @@ def ensure_rag_mt_translator(model_size: str | None = None) -> QwenRAGMTTranslat
     rag_mt_translators[selected_size] = translator
     logging.info("[rag_mt] loaded model_size=%s model=%s adapter=%s", selected_size, model_path, adapter_path)
     return translator
+
+
+def rag_mt_ready(model_size: str | None = None) -> bool:
+    selected_size = (model_size or RAG_MT_MODEL_SIZE or "2b").strip().lower()
+    model_configs = RAG_MT_CONFIG.get("models", {})
+    model_config = model_configs.get(selected_size)
+    if not isinstance(model_config, dict):
+        return False
+    model_path = model_config.get("model_path")
+    adapter_path = model_config.get("adapter_path")
+    return bool(model_path and Path(model_path).exists() and adapter_path and Path(adapter_path).exists())
 
 
 def ensure_all_rag_mt_translators() -> None:
@@ -823,9 +1214,10 @@ def preload_runtime_models() -> None:
 
     logging.info("[preload] loading runtime models into memory")
     if not TEXT_ONLY_MODE:
-        if not recall_manager.ensure_running():
-            raise RuntimeError("recall service failed to start during preload")
-        logging.info("[preload] recall service is ready")
+        if recall_manager.ensure_running():
+            logging.info("[preload] recall service is ready")
+        else:
+            logging.warning("[preload] recall service unavailable; app will fallback to local search")
 
     build_exact_dictionary_index()
     logging.info("[preload] exact dictionary index is ready")
@@ -839,18 +1231,58 @@ def preload_runtime_models() -> None:
         logging.info("[preload] reranker is ready")
 
     if PIPELINE_MODE in {"rag_mt", "rag-mt", "mt"}:
-        ensure_all_rag_mt_translators()
-        logging.info("[preload] rag-mt translators are ready: %s", ", ".join(sorted(rag_mt_translators)))
+        try:
+            ensure_all_rag_mt_translators()
+            logging.info("[preload] rag-mt translators are ready: %s", ", ".join(sorted(rag_mt_translators)))
+        except Exception as exc:
+            logging.warning("[preload] rag-mt translators unavailable: %s", exc)
     elif should_preload_legacy_preprocessor():
-        ensure_preprocessor()
-        logging.info("[preload] legacy query preprocessor is ready")
+        try:
+            ensure_preprocessor()
+            logging.info("[preload] legacy query preprocessor is ready")
+        except Exception as exc:
+            logging.warning("[preload] legacy query preprocessor unavailable: %s", exc)
 
     if should_preload_legacy_preprocessor() and PIPELINE_MODE in {"rag_mt", "rag-mt", "mt"}:
-        ensure_preprocessor()
-        logging.info("[preload] legacy query preprocessor is ready")
+        try:
+            ensure_preprocessor()
+            logging.info("[preload] legacy query preprocessor is ready")
+        except Exception as exc:
+            logging.warning("[preload] legacy query preprocessor unavailable: %s", exc)
 
-    ensure_tts_model_loaded()
-    logging.info("[preload] tts model is ready")
+    logging.info("[preload] skip auto-loading tts models; keep runtime state unloaded until requested")
+
+
+def start_preload_thread() -> None:
+    if not PRELOAD_MODELS:
+        logging.info("[preload] disabled by WUU_PRELOAD_MODELS=0")
+        return
+    threading.Thread(target=preload_runtime_models, daemon=True, name="runtime-preload").start()
+
+
+def bootstrap_dictionary_assets() -> None:
+    global shaoxing_df
+    try:
+        processed_path = ensure_shaoxing_processed_csv()
+        if processed_path is not None:
+            shaoxing_df = load_dataframe(processed_path)
+            logging.info("[dict] shaoxing processed rows=%s", len(shaoxing_df))
+    except Exception as exc:
+        logging.warning("[dict] failed to prepare shaoxing csv: %s", exc)
+
+    def _build() -> None:
+        if DICT_PATH is not None and DICT_PATH.exists() and not index_complete(RECALL_INDEX_DIR):
+            try:
+                ensure_dense_index(DICT_PATH, RECALL_INDEX_DIR, source_label=PRIMARY_SOURCE_ID)
+            except Exception as exc:
+                logging.warning("[dict] failed to auto-build primary recall index: %s", exc)
+        if SHAOXING_PROCESSED_PATH is not None and SHAOXING_PROCESSED_PATH.exists() and not index_complete(SHAOXING_INDEX_DIR):
+            try:
+                ensure_dense_index(SHAOXING_PROCESSED_PATH, SHAOXING_INDEX_DIR, source_label=SHAOXING_SOURCE_ID)
+            except Exception as exc:
+                logging.warning("[dict] failed to auto-build shaoxing recall index: %s", exc)
+
+    threading.Thread(target=_build, daemon=True, name="dict-bootstrap").start()
 
 
 def clean_query_for_rag_mt(user_msg: str) -> dict[str, Any]:
@@ -909,6 +1341,48 @@ def build_exact_dictionary_index() -> dict[str, list[dict[str, Any]]]:
     return index
 
 
+def build_exact_shaoxing_index() -> dict[str, list[dict[str, Any]]]:
+    global shaoxing_exact_index
+    if shaoxing_exact_index is not None:
+        return shaoxing_exact_index
+
+    index: dict[str, list[dict[str, Any]]] = {}
+    seen: set[tuple[str, str]] = set()
+    if shaoxing_df.empty:
+        shaoxing_exact_index = index
+        return index
+
+    for _, row in shaoxing_df.iterrows():
+        headword = clean_cell_text(row[0])
+        definition_raw = clean_cell_text(row[4])
+        definition = _clean_definition_for_match(definition_raw)
+        pinyin = _row_pinyin(row)
+        if not headword:
+            continue
+        row_payload = {
+            "shanghai": headword,
+            "definition": definition_raw,
+            "pinyin": pinyin,
+            "source": SHAOXING_SOURCE_ID,
+        }
+        for key, base_score in ((headword, 120.0), (definition, 100.0)):
+            clean_key = _clean_definition_for_match(key)
+            if not clean_key:
+                continue
+            marker = (clean_key, headword)
+            if marker in seen:
+                continue
+            seen.add(marker)
+            item = dict(row_payload)
+            item["score"] = base_score - 0.01 * len(headword)
+            index.setdefault(clean_key, []).append(item)
+
+    for key, values in index.items():
+        values.sort(key=lambda item: (float(item["score"]), -len(str(item["shanghai"]))), reverse=True)
+    shaoxing_exact_index = index
+    return index
+
+
 def exact_dictionary_hits(term: str, top_n: int = 3) -> list[dict[str, Any]]:
     query = _clean_definition_for_match(term)
     if not query:
@@ -930,6 +1404,15 @@ def exact_dictionary_hits(term: str, top_n: int = 3) -> list[dict[str, Any]]:
             rows.append(dict(item))
     rows.sort(key=lambda item: (float(item["score"]), -len(str(item["shanghai"]))), reverse=True)
     return rows[:top_n]
+
+
+@lru_cache(maxsize=256)
+def cached_rule_parse(user_msg: str) -> dict[str, Any]:
+    return clean_query_for_rag_mt(user_msg)
+
+
+def clone_payload(value: Any) -> Any:
+    return copy.deepcopy(value)
 
 
 def collect_rag_mt_keyword_hits(parsed: dict[str, Any]) -> tuple[list[tuple[str, list[dict[str, Any]]]], str]:
@@ -965,13 +1448,23 @@ def collect_rag_mt_keyword_hits(parsed: dict[str, Any]) -> tuple[list[tuple[str,
 
 
 def run_rag_mt_pipeline(user_msg: str, model_size: str | None = None) -> dict[str, Any]:
-    parsed = clean_query_for_rag_mt(user_msg)
+    timings_ms: dict[str, float] = {}
+    total_started = time.perf_counter()
+
+    parse_started = time.perf_counter()
+    parsed = cached_rule_parse(user_msg)
+    timings_ms["parse"] = round((time.perf_counter() - parse_started) * 1000, 1)
+
+    context_started = time.perf_counter()
     keyword_hits, matched_source = collect_rag_mt_keyword_hits(parsed)
     context = build_lexicon_context(
         keyword_hits,
         max_pairs=int(RAG_MT_CONFIG.get("max_context_pairs", 12)),
         max_candidates_per_keyword=int(RAG_MT_CONFIG.get("max_candidates_per_keyword", 2)),
     )
+    timings_ms["context_lookup"] = round((time.perf_counter() - context_started) * 1000, 1)
+
+    translate_started = time.perf_counter()
     translator = ensure_rag_mt_translator(model_size=model_size)
     selected_model_size = (model_size or RAG_MT_MODEL_SIZE or "2b").strip().lower()
     keywords = [str(item) for item in parsed.get("keywords", []) if str(item).strip()]
@@ -981,9 +1474,12 @@ def run_rag_mt_pipeline(user_msg: str, model_size: str | None = None) -> dict[st
         raw_query=user_msg,
         keywords=keywords,
     )
+    timings_ms["translate"] = round((time.perf_counter() - translate_started) * 1000, 1)
+    timings_ms["total"] = round((time.perf_counter() - total_started) * 1000, 1)
     logging.info("[rag_mt] parsed=%s", json.dumps(parsed, ensure_ascii=False))
     logging.info("[rag_mt] context=%s", context)
     logging.info("[rag_mt] translation=%s", translation)
+    logging.info("[rag_mt] timings_ms=%s", json.dumps(timings_ms, ensure_ascii=False))
     return {
         "text": translation or parsed["core_text"],
         "mode": "rag_mt",
@@ -995,6 +1491,7 @@ def run_rag_mt_pipeline(user_msg: str, model_size: str | None = None) -> dict[st
         "lexicon_context": context,
         "matched_source": matched_source or "none",
         "model_size": selected_model_size,
+        "timings_ms": timings_ms,
         "recall": [
             {
                 "keyword": keyword,
@@ -1010,38 +1507,127 @@ def run_dictionary_lookup_pipeline(
     parsed: dict[str, Any] | None = None,
     use_legacy_preprocessor: bool = False,
 ) -> dict[str, Any]:
+    timings_ms: dict[str, float] = {}
+    total_started = time.perf_counter()
     if parsed is None:
-        parsed = ensure_preprocessor().preprocess(user_msg) if use_legacy_preprocessor else clean_query_for_rag_mt(user_msg)
+        parse_started = time.perf_counter()
+        if use_legacy_preprocessor:
+            try:
+                parsed = ensure_preprocessor().preprocess(user_msg)
+            except Exception as exc:
+                logging.warning("[lookup] legacy preprocessor unavailable, fallback to rule cleaner: %s", exc)
+                parsed = cached_rule_parse(user_msg)
+        else:
+            parsed = cached_rule_parse(user_msg)
+        timings_ms["parse"] = round((time.perf_counter() - parse_started) * 1000, 1)
+    else:
+        timings_ms["parse"] = 0.0
+
+    terms_started = time.perf_counter()
     search_terms = build_search_terms(user_msg, parsed)
+    timings_ms["build_terms"] = round((time.perf_counter() - terms_started) * 1000, 1)
     logging.info("[lookup] parsed=%s", json.dumps(parsed, ensure_ascii=False))
     logging.info("[lookup] search_terms=%s", json.dumps(search_terms, ensure_ascii=False))
 
-    results, matched_source = call_recall_service(user_msg, variants=search_terms, top_k=20, top_n=10)
-    results = rerank_recall_results(user_msg, parsed, results)[:3]
+    exact_started = time.perf_counter()
+    exact_primary: list[dict[str, Any]] = []
+    exact_shaoxing: list[dict[str, Any]] = []
+    for term in search_terms[:4]:
+        if not exact_primary:
+            exact_primary = exact_dictionary_hits(term, top_n=3)
+        if not exact_shaoxing:
+            exact_shaoxing = exact_shaoxing_hits(term, top_n=2)
+        if exact_primary and exact_shaoxing:
+            break
+    timings_ms["exact_hits"] = round((time.perf_counter() - exact_started) * 1000, 1)
+
+    if exact_primary or exact_shaoxing:
+        results = list(exact_primary)
+        seen = {f"{item.get('source', PRIMARY_SOURCE_ID)}::{sanitize_headword(str(item.get('shanghai', '')))}" for item in results}
+        for item in exact_shaoxing:
+            key = f"{item.get('source', SHAOXING_SOURCE_ID)}::{sanitize_headword(str(item.get('shanghai', '')))}"
+            if key not in seen:
+                seen.add(key)
+                results.append(item)
+        results = results[:5]
+        timings_ms["total"] = round((time.perf_counter() - total_started) * 1000, 1)
+        summary = summarize_results(results)
+        logging.info(
+            "[lookup] matched_source=%s matched_term=%s results=%s timings_ms=%s",
+            "exact_dictionary" + (",shaoxing_xlsx" if exact_shaoxing else ""),
+            search_terms[0] if search_terms else user_msg,
+            json.dumps(summary, ensure_ascii=False),
+            json.dumps(timings_ms, ensure_ascii=False),
+        )
+        return {
+            "text": build_text_only_reply(results) if TEXT_ONLY_MODE else build_reply(results),
+            "text_only": build_text_only_reply(results),
+            "parsed": clone_payload(parsed),
+            "search_terms": list(search_terms),
+            "matched_source": "exact_dictionary" + (",shaoxing_xlsx" if exact_shaoxing else ""),
+            "matched_term": search_terms[0] if search_terms else user_msg,
+            "results": summary,
+            "timings_ms": timings_ms,
+        }
+
+    recall_started = time.perf_counter()
+    primary_results, matched_source = call_recall_service(user_msg, variants=search_terms, top_k=20, top_n=10)
+    primary_results = rerank_recall_results(user_msg, parsed, primary_results)[:3]
+    timings_ms["shanghai_recall"] = round((time.perf_counter() - recall_started) * 1000, 1)
     matched_term = user_msg
-    if not results:
+    if not primary_results:
+        local_started = time.perf_counter()
         for term in search_terms:
-            results = local_search(df, term, top_n=3)
-            if results:
+            primary_results = local_search(df, term, top_n=3)
+            if primary_results:
                 matched_term = term
                 matched_source = "local_search"
                 break
+        timings_ms["shanghai_local_fallback"] = round((time.perf_counter() - local_started) * 1000, 1)
+    else:
+        timings_ms["shanghai_local_fallback"] = 0.0
+
+    shaoxing_results: list[dict[str, Any]] = []
+    shaoxing_started = time.perf_counter()
+    for term in search_terms:
+        shaoxing_results = call_shaoxing_recall(term, variants=[term], top_k=20, top_n=3)
+        if not shaoxing_results:
+            shaoxing_results = shaoxing_local_search(term, top_n=2)
+        if shaoxing_results:
+            break
+    timings_ms["shaoxing_lookup"] = round((time.perf_counter() - shaoxing_started) * 1000, 1)
+
+    results = list(primary_results)
+    seen = {f"{item.get('source', PRIMARY_SOURCE_ID)}::{sanitize_headword(str(item.get('shanghai', '')))}" for item in results}
+    for item in shaoxing_results:
+        key = f"{item.get('source', SHAOXING_SOURCE_ID)}::{sanitize_headword(str(item.get('shanghai', '')))}"
+        if key not in seen:
+            seen.add(key)
+            results.append(item)
+    results = results[:5]
+
+    source_parts = [matched_source] if matched_source else []
+    if shaoxing_results:
+        source_parts.append(SHAOXING_SOURCE_ID)
 
     summary = summarize_results(results)
+    timings_ms["total"] = round((time.perf_counter() - total_started) * 1000, 1)
     logging.info(
-        "[lookup] matched_source=%s matched_term=%s results=%s",
-        matched_source or "none",
+        "[lookup] matched_source=%s matched_term=%s results=%s timings_ms=%s",
+        ",".join(source_parts) or "none",
         matched_term,
         json.dumps(summary, ensure_ascii=False),
+        json.dumps(timings_ms, ensure_ascii=False),
     )
     return {
         "text": build_text_only_reply(results) if TEXT_ONLY_MODE else build_reply(results),
         "text_only": build_text_only_reply(results),
-        "parsed": parsed,
-        "search_terms": search_terms,
-        "matched_source": matched_source or "none",
+        "parsed": clone_payload(parsed),
+        "search_terms": list(search_terms),
+        "matched_source": ",".join(source_parts) or "none",
         "matched_term": matched_term,
         "results": summary,
+        "timings_ms": timings_ms,
     }
 
 
@@ -1057,6 +1643,7 @@ def build_combined_rag_mt_reply(rag_result: dict[str, Any], lookup_result: dict[
 
 
 def run_combined_rag_mt_pipeline(user_msg: str, model_size: str | None = None) -> dict[str, Any]:
+    total_started = time.perf_counter()
     rag_result = run_rag_mt_pipeline(user_msg, model_size=model_size)
     lookup_parsed = {
         "core_text": rag_result.get("core_text", ""),
@@ -1065,6 +1652,11 @@ def run_combined_rag_mt_pipeline(user_msg: str, model_size: str | None = None) -
         "type": rag_result.get("type", ""),
     }
     lookup_result = run_dictionary_lookup_pipeline(user_msg, parsed=lookup_parsed)
+    timings_ms = {
+        "rag_mt_total": float(rag_result.get("timings_ms", {}).get("total", 0.0)),
+        "lookup_total": float(lookup_result.get("timings_ms", {}).get("total", 0.0)),
+        "total": round((time.perf_counter() - total_started) * 1000, 1),
+    }
     return {
         "text": build_combined_rag_mt_reply(rag_result, lookup_result),
         "mode": "rag_mt_with_dictionary",
@@ -1072,6 +1664,7 @@ def run_combined_rag_mt_pipeline(user_msg: str, model_size: str | None = None) -
         "dictionary_text": lookup_result.get("text", ""),
         "translation_result": rag_result,
         "dictionary_result": lookup_result,
+        "timings_ms": timings_ms,
     }
 
 
@@ -1147,6 +1740,8 @@ def summarize_results(results: list[dict[str, Any]]) -> list[dict[str, str]]:
                 "shanghai": str(item.get("shanghai", "")).strip(),
                 "definition": str(item.get("definition", "")).strip(),
                 "wu_pinyin": str(item.get("wu_pinyin", "")).strip(),
+                "pinyin": str(item.get("pinyin", "")).strip(),
+                "source": str(item.get("source", PRIMARY_SOURCE_ID)).strip(),
             }
         )
     return summary
@@ -1277,16 +1872,31 @@ def chat():
         return jsonify({"text": "\u8fd8\u6ca1\u6709\u53ef\u4e0b\u8f7d\u7684\u97f3\u9891\u3002"})
 
     if re.fullmatch(r"[a-zA-Z0-9\s]+", user_msg):
+        started = time.perf_counter()
         if TEXT_ONLY_MODE:
             return jsonify({"text": f"text-only mode: {user_msg}"})
+        model_name = active_direct_tts_model()
+        if not tts_model_ready(model_name):
+            return jsonify({"text": f"{model_name} TTS 模型未就绪，缺少 config 或 checkpoint。"})
         logging.info("[tts] direct pinyin input: %s", user_msg)
         unique_fn = f"{uuid.uuid4().hex[:8]}.wav"
-        synthesize(user_msg, str(STATIC_DIR / unique_fn))
-        session["last_audio"] = {"filename": unique_fn, "word": "custom_pinyin"}
-        return jsonify({"text": f"\u6b63\u5728\u6717\u8bfb\uff1a{user_msg}", "audio": f"/static/{unique_fn}"})
+        try:
+            ensure_tts_model_loaded(model_name=model_name)
+            synthesize(user_msg, str(STATIC_DIR / unique_fn), model_name=model_name)
+        except RuntimeError as exc:
+            return jsonify({"text": f"{model_name} TTS 加载失败：{exc}"})
+        session["last_audio"] = {"filename": unique_fn, "word": "custom_pinyin", "model": model_name, "source": "direct"}
+        return jsonify(
+            {
+                "text": f"\u6b63\u5728\u6717\u8bfb\uff1a{user_msg}<br><span style='color:#64748b;'>模型：{model_name}</span>",
+                "audio": f"/static/{unique_fn}",
+                "timings_ms": {"total": round((time.perf_counter() - started) * 1000, 1)},
+            }
+        )
 
     bracket_match = re.search(r"[\u3010\[](.+?)[\u3011\]]", user_msg)
     if bracket_match:
+        started = time.perf_counter()
         target = bracket_match.group(1).strip()
         logging.info("[tts] bracket target: %s", target)
         row = find_headword_row(target)
@@ -1303,26 +1913,86 @@ def chat():
             )
             if not wu_pinyin:
                 return jsonify({"text": f"\u5339\u914d\u5230\uff1a{row[0]}<br>\u91ca\u4e49\uff1a{row[4]}<br>\u4f46\u8be5\u8bcd\u6761\u6682\u65e0\u53ef\u7528\u8bfb\u97f3\u3002"})
+            if not tts_model_ready("shanghai"):
+                return jsonify({"text": f"\u5339\u914d\u5230\uff1a{row[0]}<br>\u91ca\u4e49\uff1a{row[4]}<br>上海话 TTS 模型未就绪，暂时不能朗读。"})
 
             unique_fn = f"{uuid.uuid4().hex[:8]}.wav"
-            synthesize(wu_pinyin, str(STATIC_DIR / unique_fn))
-            session["last_audio"] = {"filename": unique_fn, "word": str(row[0])}
+            try:
+                ensure_tts_model_loaded(model_name="shanghai")
+                synthesize(wu_pinyin, str(STATIC_DIR / unique_fn), model_name="shanghai")
+            except RuntimeError as exc:
+                return jsonify({"text": f"\u5339\u914d\u5230\uff1a{row[0]}<br>\u91ca\u4e49\uff1a{row[4]}<br>TTS 加载失败：{exc}"})
+            session["last_audio"] = {"filename": unique_fn, "word": str(row[0]), "model": "shanghai", "source": PRIMARY_SOURCE_ID}
             return jsonify(
                 {
-                    "text": f"\u5339\u914d\u5230\uff1a{row[0]}<br>\u91ca\u4e49\uff1a{row[4]}",
+                    "text": f"\u5339\u914d\u5230\uff1a{row[0]}<br>\u91ca\u4e49\uff1a{row[4]}<br><span style='color:#64748b;'>模型：shanghai</span>",
                     "audio": f"/static/{unique_fn}",
+                    "timings_ms": {"total": round((time.perf_counter() - started) * 1000, 1)},
+                }
+            )
+        shaoxing_row = find_shaoxing_row(target)
+        if shaoxing_row is not None:
+            definition = clean_cell_text(shaoxing_row[4]) or "\u6682\u7f3a"
+            pinyin = _row_pinyin(shaoxing_row) or "\u6682\u7f3a"
+            if TEXT_ONLY_MODE or pinyin == "\u6682\u7f3a":
+                return jsonify(
+                    {
+                        "text": (
+                            f"\u5339\u914d\u5230\uff1a{shaoxing_row[0]}"
+                            f"<br>\u62fc\u97f3\uff1a{pinyin}"
+                            f"<br>\u91ca\u4e49\uff1a{definition}"
+                        )
+                    }
+                )
+            if not tts_model_ready("shaoxing"):
+                return jsonify(
+                    {
+                        "text": (
+                            f"\u5339\u914d\u5230\uff1a{shaoxing_row[0]}"
+                            f"<br>\u62fc\u97f3\uff1a{pinyin}"
+                            f"<br>\u91ca\u4e49\uff1a{definition}"
+                            "<br>绍兴话 TTS 模型未就绪。"
+                        )
+                    }
+                )
+            unique_fn = f"{uuid.uuid4().hex[:8]}.wav"
+            try:
+                synthesize_dictionary_audio(
+                    source_id=SHAOXING_SOURCE_ID,
+                    headword=clean_cell_text(shaoxing_row[0]) or target,
+                    pinyin=pinyin,
+                    output_path=STATIC_DIR / unique_fn,
+                )
+            except RuntimeError as exc:
+                return jsonify({"text": f"\u5339\u914d\u5230\uff1a{shaoxing_row[0]}<br>TTS 加载失败：{exc}"})
+            session["last_audio"] = {"filename": unique_fn, "word": str(shaoxing_row[0]), "model": "shaoxing", "source": SHAOXING_SOURCE_ID}
+            return jsonify(
+                {
+                    "text": (
+                        f"\u5339\u914d\u5230\uff1a{shaoxing_row[0]}"
+                        f"<br>\u62fc\u97f3\uff1a{pinyin}"
+                        f"<br>\u91ca\u4e49\uff1a{definition}"
+                        "<br><span style='color:#64748b;'>模型：shaoxing</span>"
+                    ),
+                    "audio": f"/static/{unique_fn}",
+                    "timings_ms": {"total": round((time.perf_counter() - started) * 1000, 1)},
                 }
             )
         return jsonify({"text": f"\u672a\u627e\u5230\u8bcd\u6761\uff1a{target}"})
 
-    requested_mode = str(payload.get("pipeline_mode", PIPELINE_MODE)).strip().lower()
-    if requested_mode in {"rag_mt", "rag-mt", "mt"}:
+    requested_mode = str(payload.get("pipeline_mode") or "lookup").strip().lower()
+    if requested_mode in {"rag_mt", "rag-mt", "mt"} and rag_mt_ready():
         model_size = str(payload.get("rag_mt_model_size", RAG_MT_MODEL_SIZE)).strip().lower()
-        result = run_combined_rag_mt_pipeline(user_msg, model_size=model_size)
+        try:
+            result = run_combined_rag_mt_pipeline(user_msg, model_size=model_size)
+        except Exception as exc:
+            logging.warning("[rag_mt] fallback to dictionary lookup: %s", exc)
+            lookup_result = run_dictionary_lookup_pipeline(user_msg, use_legacy_preprocessor=True)
+            return jsonify({"text": lookup_result["text"], "mode": "lookup_fallback", "dictionary_result": lookup_result, "timings_ms": lookup_result.get("timings_ms", {})})
         return jsonify(result)
 
     lookup_result = run_dictionary_lookup_pipeline(user_msg, use_legacy_preprocessor=True)
-    return jsonify({"text": lookup_result["text"], "mode": "lookup", "dictionary_result": lookup_result})
+    return jsonify({"text": lookup_result["text"], "mode": "lookup", "dictionary_result": lookup_result, "timings_ms": lookup_result.get("timings_ms", {})})
 
 
 def configure_logging() -> None:
@@ -1344,11 +2014,12 @@ def configure_logging() -> None:
 
 if __name__ == "__main__":
     configure_logging()
+    bootstrap_dictionary_assets()
     print(f"Pipeline mode: {PIPELINE_MODE}", flush=True)
     if PIPELINE_MODE in {"rag_mt", "rag-mt", "mt"}:
         print(f"RAG-MT model size: {RAG_MT_MODEL_SIZE}", flush=True)
     else:
         print(f"Loading query preprocessor backend: {PREPROCESSOR_BACKEND}", flush=True)
-    preload_runtime_models()
+    start_preload_thread()
     print("Starting Flask app...", flush=True)
-    app.run(debug=True, port=8081, threaded=False, use_reloader=False)
+    app.run(debug=os.getenv("FLASK_DEBUG", "0") == "1", port=8081, threaded=True, use_reloader=False)

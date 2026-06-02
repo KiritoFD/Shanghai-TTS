@@ -1,8 +1,8 @@
 {
   "model_name_or_path": "../../../model/bge-m3",
-  "rows": 15751,
+  "rows": 3986,
   "dim": 1024,
-  "dict_csv": "G:\\GitHub\\Shanghai-TTS\\app\\recall\\processed_results.csv",
+  "dict_csv": "G:\\GitHub\\Shanghai-TTS\\app\\data\\generated\\shaoxing_processed.csv",
   "text_mode": "headword_definition",
   "text_fields": [
     "shanghai",

@@ -6,6 +6,7 @@ This directory contains the runnable web app and its supporting code.
 
 - `app.py`: full pipeline, from user text to recalled entry to final audio.
 - `app_text.py`: text-only debug mode, same retrieval path but no TTS synthesis.
+- `recall/recall_service.py`: unified recall HTTP service. Shanghai and Shaoxing both sit behind `127.0.0.1:8088`.
 
 ## Split backends
 
@@ -69,8 +70,15 @@ python app/app_text.py
 curl http://127.0.0.1:8081/api/user/confinfo
 ```
 
+Recall service health:
+
+```bash
+curl http://127.0.0.1:8088/health
+```
+
 ## Notes
 
 - Runtime paths are resolved relative to `app/`.
 - LoRA checkpoints remain under `app/model_lora/`.
 - A smaller incomplete legacy `Qwen3.5-4B` copy was moved to `../model/_unused/Qwen3.5-4B_incomplete_legacy`.
+- Recall build details for both Shanghai and Shaoxing live in `app/recall/README.md`.
