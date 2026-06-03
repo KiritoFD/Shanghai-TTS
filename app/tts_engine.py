@@ -666,7 +666,7 @@ def get_model(model_name: str | None = None) -> tuple[nn.Module, dict[str, Any]]
     normalized = _normalize_model_name(model_name)
     state = _tts_models[normalized]
     if state.model is None or state.config is None:
-        target_device = "cuda" if torch.cuda.is_available() else "cpu"
+        target_device = "cpu"
         load_model(normalized, device=target_device)
         state = _tts_models[normalized]
     assert state.model is not None and state.config is not None

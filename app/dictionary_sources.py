@@ -12,7 +12,8 @@ from shared.config import APP_ROOT, REPO_ROOT
 
 GENERATED_DIR = APP_ROOT / "data" / "generated"
 PRIMARY_INDEX_DIR = APP_ROOT / "recall" / "index_local_bge_m3"
-SHAOXING_XLSX_PATH = REPO_ROOT / "merged_result.xlsx"
+SHAOXING_XLSX_PATH = APP_ROOT / "merged_result.xlsx"
+LEGACY_SHAOXING_XLSX_PATH = REPO_ROOT / "merged_result.xlsx"
 SHAOXING_CSV_PATH = GENERATED_DIR / "shaoxing_processed.csv"
 SHAOXING_INDEX_DIR = APP_ROOT / "recall" / "index_shaoxing_bge_m3"
 
@@ -68,6 +69,8 @@ def build_shaoxing_processed_csv(
     xlsx_path: Path = SHAOXING_XLSX_PATH,
     out_csv: Path = SHAOXING_CSV_PATH,
 ) -> Path:
+    if not xlsx_path.exists() and xlsx_path == SHAOXING_XLSX_PATH and LEGACY_SHAOXING_XLSX_PATH.exists():
+        xlsx_path = LEGACY_SHAOXING_XLSX_PATH
     if not xlsx_path.exists():
         raise FileNotFoundError(f"shaoxing xlsx not found: {xlsx_path}")
 

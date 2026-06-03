@@ -7,6 +7,7 @@ __pycache__/
 **/outputs/
 *.pyc
 outputs/
+tmp/
 .claude/
 .vscode/
 *.egg-info/

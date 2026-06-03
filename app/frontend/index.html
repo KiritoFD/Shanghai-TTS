@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/static/fonts/sliced/result.css">
+  <link rel="stylesheet" href="/frontend/app.css">
+  <title>旦说吴方</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="mobile-bar" id="mobile-bar">
+      <button class="icon-button" id="mobile-menu" type="button" aria-label="打开侧边栏">
+        <span></span><span></span><span></span>
+      </button>
+      <strong>旦说吴方</strong>
+      <span class="mobile-status">拼音直读：<b id="mobile-direct-model">加载中</b></span>
+    </header>
+
+    <aside class="sidebar collapsed" id="sidebar">
+      <div class="sidebar-head">
+        <h1>旦说吴方</h1>
+        <button class="icon-button arrow" id="sidebar-toggle" type="button" aria-label="收起侧边栏">‹</button>
+      </div>
+
+      <section class="side-section">
+        <h2>关于</h2>
+        <p>上海 / 绍兴双词典检索，结果按来源连接对应 TTS。模型可以按需加载到 CPU / GPU，不用时卸载。</p>
+      </section>
+
+      <section class="side-section note">
+        <strong>提示：</strong>
+        <span>结果会标明来源。上海词条走上海模型，绍兴词条走绍兴模型。直接输入拼音时使用当前拼音直读模型。</span>
+      </section>
+
+      <section class="side-section model-section">
+        <h2>模型控制</h2>
+
+        <article class="model-card" id="card-shanghai">
+          <div class="model-head">
+            <strong>上海话</strong>
+            <span class="chip" id="status-shanghai">加载中</span>
+          </div>
+          <p class="model-meta" id="meta-shanghai">等待状态</p>
+          <div class="button-grid">
+            <button type="button" data-load="shanghai:cuda">GPU</button>
+            <button type="button" data-load="shanghai:cpu">CPU</button>
+            <button type="button" data-load="shanghai:unloaded">卸载</button>
+            <button type="button" id="direct-btn-shanghai" data-direct="shanghai">设为拼音直读</button>
+          </div>
+        </article>
+
+        <article class="model-card" id="card-shaoxing">
+          <div class="model-head">
+            <strong>绍兴话</strong>
+            <span class="chip" id="status-shaoxing">加载中</span>
+          </div>
+          <p class="model-meta" id="meta-shaoxing">等待状态</p>
+          <div class="button-grid">
+            <button type="button" data-load="shaoxing:cuda">GPU</button>
+            <button type="button" data-load="shaoxing:cpu">CPU</button>
+            <button type="button" data-load="shaoxing:unloaded">卸载</button>
+            <button type="button" id="direct-btn-shaoxing" data-direct="shaoxing">设为拼音直读</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="side-section quick-list">
+        <h2>快捷提问</h2>
+        <button type="button" data-prompt="自行车怎么说">自行车怎么说<small>走普通话释义检索</small></button>
+        <button type="button" data-prompt="太阳">太阳<small>同时查看上海 / 绍兴结果</small></button>
+        <button type="button" data-prompt="[太阳]">[太阳]<small>直接按词条查询</small></button>
+        <button type="button" data-prompt="shi33 sa55 tha55 yan52">直接读拼音<small>使用当前拼音直读模型</small></button>
+      </section>
+    </aside>
+
+    <div class="sidebar-resizer hidden" id="sidebar-resizer" aria-hidden="true"></div>
+
+    <main class="main collapsed" id="main">
+      <header class="topbar" id="topbar">
+        <button class="icon-button desktop-open" id="desktop-menu" type="button" aria-label="打开侧边栏">
+          <span></span><span></span><span></span>
+        </button>
+        <div class="topbar-spacer"></div>
+        <span class="chip"><strong>检索源</strong> 上海词典 / 绍兴词典</span>
+        <span class="chip" id="direct-model-chip"><strong>拼音直读</strong> 加载中</span>
+        <button class="outline-button" id="rebuild-button" type="button">重建索引</button>
+      </header>
+
+      <section class="chat-panel">
+        <div class="chat-window" id="chat-window">
+          <div class="message ai">
+            <div class="avatar">旦</div>
+            <div class="bubble-wrap">
+              <div class="bubble">输入普通话释义、词条名，或直接输入吴语拼音。上海、绍兴结果都支持按来源调用对应 TTS。</div>
+              <div class="meta">系统就绪</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="composer">
+        <div class="composer-inner">
+          <div class="composer-tools">
+            <button type="button" data-prompt="下载">下载最近音频</button>
+            <button type="button" data-prompt="再读一遍">重播最近音频</button>
+            <button type="button" data-prompt="月亮">试一个常见词</button>
+          </div>
+          <div class="input-row">
+            <textarea id="userInput" placeholder="输入普通话释义、词条名，或者直接输入吴语拼音"></textarea>
+            <button class="send-button" id="sendBtn" type="button" aria-label="发送">↑</button>
+          </div>
+          <div class="status-line">按 Enter 发送，Shift+Enter 换行。</div>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <div class="modal" id="rebuild-modal" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-head">
+        <strong>索引重建状态</strong>
+        <button class="outline-button" id="close-rebuild" type="button">关闭</button>
+      </div>
+      <pre id="rebuild-log">等待中...</pre>
+      <div class="modal-foot">
+        <span>索引构建完成后会自动用于检索。</span>
+        <button class="outline-button" id="done-rebuild" type="button">完成</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/frontend/app.js" defer></script>
+</body>
+</html>

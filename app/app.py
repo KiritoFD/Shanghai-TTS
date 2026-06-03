@@ -61,7 +61,7 @@ ZH_PROMPT = (
 ROOT = Path(__file__).resolve().parent
 REPO_ROOT = ROOT.parent
 STATIC_DIR = ROOT / "static"
-FRONTEND_DIR = REPO_ROOT / "frontend"
+FRONTEND_DIR = ROOT / "frontend"
 LOG_DIR = ROOT / "logs"
 RUNTIME_CONFIG = load_runtime_config()
 CHECKPOINT_PATH = Path(RUNTIME_CONFIG["llm"]["lora_checkpoint_dir"])
@@ -111,7 +111,7 @@ shaoxing_recall_engine = None
 shaoxing_exact_index: dict[str, list[dict[str, Any]]] | None = None
 COMPILE_ENABLED = bool(RUNTIME_CONFIG["llm"].get("compile_enabled", False))
 COMPILE_MODE = str(RUNTIME_CONFIG["llm"].get("compile_mode", "reduce-overhead"))
-COMPILE_CACHE_DIR = Path(RUNTIME_CONFIG["llm"].get("compile_cache_dir") or (REPO_ROOT / ".cache" / "torchinductor_split"))
+COMPILE_CACHE_DIR = Path(RUNTIME_CONFIG["llm"].get("compile_cache_dir") or (ROOT / ".cache" / "torchinductor_split"))
 
 
 def resolve_dictionary_path() -> Path | None:
@@ -142,7 +142,7 @@ def ensure_tts_model_loaded(model_name: str | None = None, device: str | None = 
     module = _tts_module()
     load_model = getattr(module, "load_model", None)
     if callable(load_model):
-        target_device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        target_device = device or "cpu"
         return load_model(model_name, device=target_device)
     return None
 
@@ -779,7 +779,7 @@ def build_reply(results: list[dict[str, Any]]) -> str:
     if not results:
         return "\u672a\u627e\u5230\u5339\u914d\u8bcd\u6761\u3002"
 
-    lines = ["\u627e\u5230\u8fd9\u4e9b\u5019\u9009\uff1a<br><br>"]
+    lines = ["<div class='result-stack'><div class='result-summary'>找到这些候选词条</div>"]
     for item in results:
         raw_headword = str(item.get("shanghai", "")).strip()
         shanghai = sanitize_headword(raw_headword)
@@ -790,20 +790,41 @@ def build_reply(results: list[dict[str, Any]]) -> str:
         safe_definition = html.escape(definition, quote=True)
         safe_pinyin = html.escape(pinyin, quote=True)
         safe_source = html.escape(source, quote=True)
-        if shanghai:
-            shanghai = f"\u3010{safe_headword}\u3011"
-        badge = "\u4e0a\u6d77\u8bcd\u5178" if source != SHAOXING_SOURCE_ID else "\u7ecd\u5174\u8bcd\u5178"
-        lines.append(f"<b>{shanghai}</b> <span class='result-badge'>[{badge}]</span><br>")
-        if pinyin:
-            lines.append(f"\u62fc\u97f3\uff1a{safe_pinyin}<br>")
-        lines.append(f"\u91ca\u4e49\uff1a{safe_definition}<br>")
+        badge = "上海词典" if source != SHAOXING_SOURCE_ID else "绍兴词典"
+        source_class = "shaoxing" if source == SHAOXING_SOURCE_ID else "shanghai"
+        lines.append("<article class='result-card'>")
+        lines.append(
+            "<div class='result-head'>"
+            f"<span class='result-title'>{safe_headword or '未命名词条'}</span>"
+            f"<span class='result-badge {source_class}'>{badge}</span>"
+            "</div>"
+        )
         if pinyin:
             lines.append(
+                "<div class='result-row'>"
+                "<span class='result-label'>拼音</span>"
+                f"<span class='result-value result-pinyin'>{safe_pinyin}</span>"
+                "</div>"
+            )
+        lines.append(
+            "<div class='result-row'>"
+            "<span class='result-label'>释义</span>"
+            f"<span class='result-value'>{safe_definition or '暂无释义'}</span>"
+            "</div>"
+        )
+        if pinyin:
+            lines.append(
+                "<div class='result-actions'>"
                 "<button type='button' class='voice-btn' "
-                f"data-headword='{safe_headword}' data-source='{safe_source}'>\u25b6 \u751f\u6210\u8bed\u97f3</button><br><hr>"
+                f"data-headword='{safe_headword}' data-source='{safe_source}'>"
+                "<span class='voice-icon'>▶</span><span>生成语音</span>"
+                "</button>"
+                "</div>"
             )
         else:
-            lines.append("<span class='result-badge'>\u8be5\u8bcd\u6761\u6682\u65e0\u53ef\u7528\u8bfb\u97f3</span><br><hr>")
+            lines.append("<div class='result-note'>该词条暂无可用读音</div>")
+        lines.append("</article>")
+    lines.append("</div>")
     return "".join(lines)
 
 
@@ -898,14 +919,14 @@ def api_rebuild_index():
         global local_recall_engine, exact_dictionary_index, df, _rebuild_status
         try:
             import sys as _sys
-            _script_dir = str(REPO_ROOT / "app" / "recall" / "scripts")
+            _script_dir = str(ROOT / "recall" / "scripts")
             if _script_dir not in _sys.path:
                 _sys.path.insert(0, _script_dir)
             from build_vector_index import run_build  # type: ignore[import]
 
             meta = json.loads((RECALL_INDEX_DIR / "meta.json").read_text(encoding="utf-8"))
             # resolve model path relative to index_dir (matches how RecallEngine does it)
-            _recall_dir = str(REPO_ROOT / "app" / "recall")
+            _recall_dir = str(ROOT / "recall")
             if _recall_dir not in _sys.path:
                 _sys.path.insert(0, _recall_dir)
             from model_utils import ensure_model_path  # type: ignore[import]
@@ -2029,4 +2050,10 @@ if __name__ == "__main__":
         print(f"Loading query preprocessor backend: {PREPROCESSOR_BACKEND}", flush=True)
     start_preload_thread()
     print("Starting Flask app...", flush=True)
-    app.run(debug=os.getenv("FLASK_DEBUG", "0") == "1", port=8081, threaded=True, use_reloader=False)
+    app.run(
+        host=os.getenv("FLASK_HOST", "0.0.0.0"),
+        debug=os.getenv("FLASK_DEBUG", "0") == "1",
+        port=8081,
+        threaded=True,
+        use_reloader=False,
+    )
