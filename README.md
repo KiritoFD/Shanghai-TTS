@@ -47,11 +47,11 @@
 TTS ckpt / config 按模型分开维护：
 
 - 上海
-  - `config_27000.json`
-  - `checkpoint_27000.pth`
-- 绍兴
   - `config.json`
   - `checkpoint_48000.pth`
+- 绍兴
+  - `config_27000.json`
+  - `checkpoint_27000.pth`
 
 ## 主应用启动
 
