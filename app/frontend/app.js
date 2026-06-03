@@ -65,10 +65,13 @@ function syncSidebarResizer() {
 }
 
 function setSidebarCollapsed(collapsed) {
+  document.body.classList.toggle("sidebar-collapsed", collapsed);
   els.sidebar.classList.toggle("collapsed", collapsed);
   els.main.classList.toggle("collapsed", collapsed);
   if (els.sidebarToggle) {
-    els.sidebarToggle.textContent = collapsed ? "›" : "‹";
+    els.sidebarToggle.innerHTML = collapsed
+      ? `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>`
+      : `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>`;
     els.sidebarToggle.setAttribute("aria-label", collapsed ? "展开侧边栏" : "收起侧边栏");
   }
   syncSidebarResizer();
@@ -148,7 +151,22 @@ function modelMetaText(status) {
 function setChipText(el, text, error = false) {
   if (!el) return;
   el.textContent = text;
-  el.classList.toggle("error", error);
+  
+  // Clear status classes
+  el.classList.remove("error", "cuda", "cpu", "unloaded");
+  
+  if (error) {
+    el.classList.add("error");
+  } else {
+    const cleanText = text.toLowerCase();
+    if (cleanText.includes("cuda") || cleanText.includes("gpu")) {
+      el.classList.add("cuda");
+    } else if (cleanText.includes("cpu")) {
+      el.classList.add("cpu");
+    } else if (cleanText.includes("unloaded")) {
+      el.classList.add("unloaded");
+    }
+  }
 }
 
 function renderTtsDisconnected(message) {
