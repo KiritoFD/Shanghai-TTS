@@ -27,8 +27,11 @@
 html,
 body {
     margin: 0;
-    min-height: 100%;
+    width: 100%;
+    height: 100dvh;
+    min-height: 100dvh;
     overflow-x: hidden;
+    overflow-y: hidden;
 }
 
 body {
@@ -45,11 +48,15 @@ body.busy {
 }
 
 .shell {
+    width: 100%;
+    height: 100dvh;
     min-height: 100dvh;
+    max-height: 100dvh;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
     background: rgba(255, 255, 255, 0.58);
     backdrop-filter: blur(10px);
+    overflow: hidden;
 }
 
 .topbar {
@@ -244,6 +251,7 @@ body.busy {
     grid-template-columns: minmax(292px, 340px) minmax(0, 1fr);
     min-height: 0;
     height: 100%;
+    max-height: 100%;
     overflow: hidden;
 }
 
@@ -252,6 +260,7 @@ body.busy {
     flex-direction: column;
     gap: 16px;
     min-height: 0;
+    height: 100%;
     padding: 22px;
     overflow-y: auto;
     border-right: 1px solid var(--border);
@@ -490,7 +499,9 @@ body.busy {
     min-width: 0;
     min-height: 0;
     height: 100%;
+    max-height: 100%;
     padding: 22px 22px 0;
+    overflow: hidden;
 }
 
 .panel-banner {
@@ -531,8 +542,10 @@ body.busy {
     gap: 14px;
     min-height: 0;
     height: 100%;
+    max-height: 100%;
     padding: 0 6px 20px;
     overflow-y: auto;
+    overflow-x: hidden;
     scroll-behavior: smooth;
 }
 
@@ -749,6 +762,7 @@ audio {
 }
 
 .composer {
+    min-height: 0;
     padding: 16px 24px 18px;
     border-top: 1px solid var(--border);
     background: rgba(255, 255, 255, 0.86);
@@ -884,6 +898,20 @@ audio {
 }
 
 @media (max-width: 980px) {
+    html,
+    body {
+        height: auto;
+        min-height: 100dvh;
+        overflow-y: auto;
+    }
+
+    .shell {
+        height: auto;
+        min-height: 100dvh;
+        max-height: none;
+        overflow: visible;
+    }
+
     .topbar {
         flex-direction: column;
         align-items: flex-start;
@@ -900,17 +928,161 @@ audio {
     }
 
     .sidebar {
+        height: auto;
         padding: 18px;
         border-right: none;
         border-bottom: 1px solid var(--border);
+        overflow: visible;
     }
 
     .chat-panel {
+        height: auto;
+        max-height: none;
         padding: 18px 18px 0;
+        overflow: visible;
     }
 
     .hero {
         grid-template-columns: 1fr;
+    }
+
+    #chat-window {
+        height: auto;
+        max-height: none;
+        overflow: visible;
+    }
+}
+
+@media (max-height: 940px) and (min-width: 981px) {
+    .topbar {
+        gap: 14px;
+        padding: 14px 18px;
+    }
+
+    .brand {
+        gap: 12px;
+    }
+
+    .brand-mark {
+        min-width: 104px;
+        height: 34px;
+        font-size: 12px;
+    }
+
+    .brand-copy h1 {
+        font-size: 24px;
+    }
+
+    .brand-copy p,
+    .panel-banner p,
+    .side-section p,
+    .model-meta,
+    .model-subtitle,
+    .bubble,
+    #userInput {
+        font-size: 13px;
+    }
+
+    .chip,
+    .segmented button,
+    .small-btn,
+    .quick-btn strong,
+    .quick-btn small,
+    .tiny-btn,
+    .status,
+    .meta {
+        font-size: 12px;
+    }
+
+    .content {
+        grid-template-columns: minmax(264px, 314px) minmax(0, 1fr);
+    }
+
+    .sidebar {
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .side-section {
+        gap: 10px;
+        padding: 12px;
+    }
+
+    .side-section h2 {
+        font-size: 18px;
+    }
+
+    .side-section h3,
+    .model-title {
+        font-size: 15px;
+    }
+
+    .overview-grid,
+    .hero-grid,
+    .button-grid {
+        gap: 8px;
+    }
+
+    .stat-card,
+    .hero-card {
+        min-height: 72px;
+        padding: 10px;
+    }
+
+    .model-card {
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .small-btn {
+        min-height: 36px;
+        padding: 7px 8px;
+    }
+
+    .chat-panel {
+        padding: 14px 14px 0;
+    }
+
+    .panel-banner {
+        margin-bottom: 12px;
+        padding: 10px 12px;
+    }
+
+    .hero {
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .hero-copy h2 {
+        font-size: 28px;
+    }
+
+    #chat-window {
+        gap: 10px;
+        padding: 0 4px 12px;
+    }
+
+    .bubble {
+        padding: 12px 14px;
+    }
+
+    .composer {
+        padding: 10px 16px 12px;
+    }
+
+    .composer-tools {
+        margin-bottom: 8px;
+    }
+
+    #userInput {
+        min-height: 48px;
+        max-height: 132px;
+        padding: 10px 12px;
+    }
+
+    #sendBtn {
+        width: 48px;
+        height: 48px;
     }
 }
 
