@@ -1,0 +1,1554 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="stylesheet" href="/static/fonts/sliced/result.css" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap"
+            rel="stylesheet"
+        />
+        <title>Shanghai TTS</title>
+        <style>
+            :root {
+                color-scheme: light;
+                --bg: #f4f7fb;
+                --surface: #ffffff;
+                --surface-muted: #eef3f9;
+                --border: #d8e1ec;
+                --text: #172033;
+                --muted: #63748b;
+                --accent: #2563eb;
+                --accent-strong: #1d4ed8;
+                --accent-soft: #dbeafe;
+                --ok: #0f766e;
+                --warning: #b45309;
+                --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+                --radius: 18px;
+                --desktop-header-h: 60px;
+                --mobile-header-h: 50px;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            html,
+            body {
+                height: 100dvh;
+                overflow: hidden;
+            }
+
+            body {
+                margin: 0;
+                font-family: "Noto Sans SC", "PingFang SC", "HanaMinB", sans-serif;
+                color: var(--text);
+                background:
+                    radial-gradient(circle at top left, #e0ecff 0, transparent 28%),
+                    radial-gradient(circle at top right, #e6f6f3 0, transparent 24%),
+                    var(--bg);
+                min-height: 100dvh;
+                overflow-x: hidden;
+                overflow-y: hidden;
+            }
+
+            .shell {
+                width: 100%;
+                max-width: 100%;
+                margin: 0;
+                height: 100dvh;
+                display: flex;
+                flex-direction: column;
+                background: rgba(255, 255, 255, 0.82);
+                backdrop-filter: blur(8px);
+                overflow: hidden;
+                position: fixed;
+                inset: 0;
+            }
+
+            .sidebar-header {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: clamp(248px, 24vw, 320px);
+                height: 60px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 16px;
+                background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.92));
+                border-bottom: 1px solid var(--border);
+                z-index: 100;
+            }
+
+            .sidebar-title {
+                font-size: 18px;
+                font-weight: 700;
+                color: var(--text);
+                margin: 0;
+            }
+
+            .sidebar-toggle-btn {
+                width: 32px;
+                height: 32px;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                background: var(--surface);
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 160ms ease;
+            }
+
+            .sidebar-toggle-btn:hover {
+                background: var(--surface-muted);
+            }
+
+            .sidebar-toggle-btn svg {
+                width: 14px;
+                height: 14px;
+                transition: transform 160ms ease;
+            }
+
+            .sidebar-toggle-btn.collapsed svg {
+                transform: scaleX(-1);
+            }
+
+            .topbar {
+                position: fixed;
+                left: clamp(248px, 24vw, 320px);
+                right: 0;
+                top: 0;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                gap: 16px;
+                padding: 0 24px;
+                height: 60px;
+                background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.82));
+                border-bottom: 1px solid var(--border);
+                transition: left 200ms ease;
+                z-index: 99;
+            }
+
+            .topbar.collapsed {
+                left: 0;
+            }
+
+            .toolbar-group {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+
+            .chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 8px 12px;
+                border-radius: 999px;
+                background: var(--surface-muted);
+                color: var(--muted);
+                font-size: 12px;
+                line-height: 1;
+                border: 1px solid transparent;
+            }
+
+            .chip strong {
+                color: var(--text);
+                font-weight: 600;
+            }
+
+            .icon-btn {
+                border: 1px solid var(--border);
+                background: var(--surface);
+                color: var(--text);
+                height: 38px;
+                min-width: 38px;
+                border-radius: 12px;
+                padding: 0 12px;
+                cursor: pointer;
+                font: inherit;
+                transition: 160ms ease;
+            }
+
+            .icon-btn:hover {
+                border-color: #b6c5d8;
+                background: #f9fbff;
+            }
+
+            .content {
+                display: flex;
+                flex: 1;
+                min-height: 0;
+                height: 100%;
+                width: 100%;
+                padding-top: var(--desktop-header-h);
+                overflow: hidden;
+            }
+
+            .sidebar {
+                padding: 70px 22px 22px;
+                border-right: 1px solid var(--border);
+                background: rgba(248, 251, 255, 0.86);
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                width: clamp(248px, 24vw, 320px);
+                flex-shrink: 0;
+                overflow-y: auto;
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                transition: transform 200ms ease;
+            }
+
+            .sidebar.collapsed {
+                transform: translateX(-100%);
+            }
+
+            .sidebar h2,
+            .sidebar h3 {
+                margin: 0;
+                font-size: 14px;
+            }
+
+            .sidebar p {
+                margin: 0;
+                color: var(--muted);
+                font-size: 13px;
+                line-height: 1.6;
+            }
+
+            .hint-list,
+            .quick-list {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .model-panel {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .model-card {
+                border: 1px solid var(--border);
+                border-radius: 14px;
+                background: var(--surface);
+                padding: 12px;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .model-head {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+            }
+
+            .model-title {
+                font-size: 13px;
+                font-weight: 700;
+                white-space: nowrap;
+            }
+
+            .model-meta {
+                color: var(--muted);
+                font-size: 12px;
+                line-height: 1.5;
+            }
+
+            .button-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .small-btn {
+                border: 1px solid var(--border);
+                background: var(--surface);
+                color: var(--text);
+                border-radius: 10px;
+                padding: 8px 10px;
+                font: inherit;
+                font-size: 12px;
+                cursor: pointer;
+                transition: 160ms ease;
+            }
+
+            .small-btn:hover {
+                border-color: #bfd2ea;
+                background: #f8fbff;
+            }
+
+            .small-btn.active {
+                border-color: #93c5fd;
+                background: var(--accent-soft);
+                color: var(--accent-strong);
+            }
+
+            .quick-btn {
+                width: 100%;
+                text-align: left;
+                border: 1px solid var(--border);
+                background: var(--surface);
+                color: var(--text);
+                border-radius: 12px;
+                padding: 12px 14px;
+                cursor: pointer;
+                font: inherit;
+                transition: 160ms ease;
+            }
+
+            .quick-btn:hover {
+                border-color: #bfd2ea;
+                background: #f8fbff;
+            }
+
+            .quick-btn small {
+                display: block;
+                margin-top: 4px;
+                color: var(--muted);
+            }
+
+            .chat-panel {
+                position: fixed;
+                top: var(--desktop-header-h);
+                left: clamp(248px, 24vw, 320px);
+                right: 0;
+                bottom: 170px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                min-height: 0;
+                transition: left 200ms ease;
+            }
+
+            .chat-panel.collapsed {
+                left: 0;
+            }
+
+            .chat-container {
+                display: flex;
+                flex-direction: column;
+                width: 100%;
+                max-width: 800px;
+                flex: 1;
+                min-height: 0;
+                padding: 0 20px;
+                overflow: hidden;
+            }
+
+            .banner {
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                padding: 14px 18px;
+                border-bottom: 1px solid var(--border);
+                background: rgba(255, 255, 255, 0.8);
+                color: var(--muted);
+                font-size: 13px;
+            }
+
+            .banner strong {
+                color: var(--text);
+            }
+
+            #chat-window {
+                overflow-y: auto;
+                overflow-x: hidden;
+                padding: 20px;
+                display: flex;
+                flex-direction: column;
+                gap: 14px;
+                min-height: 0;
+                flex: 1;
+            }
+
+            .row {
+                display: flex;
+                gap: 10px;
+                align-items: flex-end;
+                max-width: min(780px, 88%);
+            }
+
+            .row.user {
+                margin-left: auto;
+                flex-direction: row-reverse;
+            }
+
+            .avatar {
+                width: 34px;
+                height: 34px;
+                border-radius: 12px;
+                display: grid;
+                place-items: center;
+                flex: 0 0 auto;
+                font-size: 12px;
+                font-weight: 700;
+            }
+
+            .avatar.ai {
+                background: var(--surface-muted);
+                color: var(--accent-strong);
+            }
+
+            .avatar.user {
+                background: #cce5ff;
+                color: #000;
+            }
+
+            .bubble-wrap {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+                min-width: 0;
+                flex: 1 1 auto;
+            }
+
+            .bubble {
+                padding: 12px 14px;
+                border-radius: var(--radius);
+                background: var(--surface);
+                border: 1px solid var(--border);
+                line-height: 1.65;
+                font-size: 14px;
+                word-break: break-word;
+                overflow-wrap: anywhere;
+            }
+
+            .row.user .bubble {
+                background: #e6f2ff;
+                color: #000;
+                border-color: #b3d9ff;
+            }
+
+            .bubble b {
+                font-weight: 700;
+            }
+
+            .bubble a {
+                color: var(--accent-strong);
+            }
+
+            .row.user .bubble a {
+                color: #fff;
+            }
+
+            .meta {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                color: var(--muted);
+                font-size: 12px;
+                padding: 0 4px;
+            }
+
+            audio {
+                width: min(360px, 100%);
+                height: 38px;
+            }
+
+            .composer {
+                position: fixed;
+                bottom: 0;
+                left: clamp(248px, 24vw, 320px);
+                right: 0;
+                border-top: 1px solid var(--border);
+                background: rgba(255, 255, 255, 0.92);
+                padding: 16px 24px 18px;
+                transition: left 200ms ease;
+                z-index: 98;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .composer.collapsed {
+                left: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .composer-inner {
+                width: 100%;
+                max-width: 800px;
+                min-height: 0;
+            }
+
+            .composer-tools {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+                margin-bottom: 10px;
+            }
+
+            .tiny-btn {
+                border: 1px solid var(--border);
+                background: var(--surface);
+                color: var(--muted);
+                border-radius: 999px;
+                padding: 7px 10px;
+                font: inherit;
+                font-size: 12px;
+                cursor: pointer;
+            }
+
+            .tiny-btn:hover {
+                color: var(--text);
+                border-color: #bfd2ea;
+            }
+
+            .input-shell {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 10px;
+                align-items: end;
+            }
+
+            #userInput {
+                width: 100%;
+                resize: none;
+                min-height: 44px;
+                max-height: 120px;
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 10px 14px;
+                font: inherit;
+                font-size: 14px;
+                line-height: 1.5;
+                background: var(--surface);
+                color: var(--text);
+                outline: none;
+            }
+
+            #userInput:focus {
+                border-color: #94b8ff;
+                box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+            }
+
+            #sendBtn {
+                width: 52px;
+                height: 52px;
+                border: none;
+                border-radius: 16px;
+                background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+                color: #fff;
+                font-size: 18px;
+                cursor: pointer;
+                transition: transform 120ms ease;
+            }
+
+            #sendBtn:hover {
+                transform: translateY(-1px);
+            }
+
+            .status {
+                margin-top: 10px;
+                color: var(--muted);
+                font-size: 12px;
+            }
+
+            .thinking {
+                color: var(--muted);
+                font-style: italic;
+            }
+
+            .modal {
+                position: fixed;
+                inset: 0;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                background: rgba(15, 23, 42, 0.28);
+                padding: 20px;
+            }
+
+            .modal.show {
+                display: flex;
+            }
+
+            .modal-card {
+                width: min(760px, 100%);
+                background: var(--surface);
+                border-radius: 18px;
+                border: 1px solid var(--border);
+                box-shadow: var(--shadow);
+                overflow: hidden;
+            }
+
+            .modal-head,
+            .modal-foot {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 14px 18px;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .modal-foot {
+                border-top: 1px solid var(--border);
+                border-bottom: none;
+            }
+
+            #rebuild-log {
+                padding: 18px;
+                background: #0f172a;
+                color: #dbeafe;
+                font-family: Noto Sans SC, Consolas, Monaco, monospace;
+                font-size: 12px;
+                line-height: 1.65;
+                max-height: 50vh;
+                overflow: auto;
+                white-space: pre-wrap;
+            }
+
+            /* 手机端顶栏（sidebar关闭时显示） */
+            .mobile-topbar {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 50px;
+                align-items: center;
+                gap: 10px;
+                padding: 0 14px;
+                background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.92));
+                border-bottom: 1px solid var(--border);
+                z-index: 99;
+            }
+
+            .mobile-open-btn {
+                width: 34px;
+                height: 34px;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                background: var(--surface);
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            }
+
+            .mobile-open-btn:hover {
+                background: var(--surface-muted);
+            }
+
+            .mobile-title {
+                font-size: 16px;
+                font-weight: 700;
+                color: var(--text);
+            }
+
+            .mobile-direct-model {
+                margin-left: auto;
+                font-size: 12px;
+                color: var(--muted);
+                white-space: nowrap;
+            }
+
+            .mobile-direct-model strong {
+                color: var(--accent);
+            }
+
+            @media (max-width: 1080px) {
+                .topbar {
+                    padding: 16px 18px;
+                }
+
+                .sidebar {
+                    padding: 18px;
+                }
+
+                #chat-window {
+                    padding: 18px;
+                }
+            }
+
+            @media (max-width: 900px) {
+                .shell {
+                    width: 100%;
+                    max-width: 100%;
+                    margin: 0;
+                    min-height: 100dvh;
+                }
+
+                .topbar {
+                    flex-direction: column;
+                    align-items: flex-start;
+                    padding: 16px;
+                    min-width: 0;
+                    overflow: hidden;
+                }
+
+                .toolbar {
+                    width: 100%;
+                    justify-content: space-between;
+                    min-width: 0;
+                }
+
+                .content {
+                    grid-template-columns: 1fr;
+                }
+
+                .sidebar {
+                    display: grid;
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                    gap: 12px;
+                    padding: 16px;
+                    border-right: none;
+                    border-bottom: 1px solid var(--border);
+                }
+
+                .sidebar > :last-child {
+                    grid-column: 1 / -1;
+                }
+
+                .button-grid {
+                    grid-template-columns: repeat(3, minmax(0, 1fr));
+                }
+
+                .row {
+                    max-width: 100%;
+                }
+
+                .composer {
+                    padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+                }
+            }
+
+            @media (max-width: 640px) {
+                .shell {
+                    min-height: 100dvh;
+                    height: 100dvh;
+                }
+
+                .brand h1 {
+                    font-size: 18px;
+                }
+
+                .brand p {
+                    font-size: 12px;
+                    line-height: 1.5;
+                    overflow-wrap: anywhere;
+                }
+
+                .toolbar {
+                    gap: 8px;
+                    display: grid;
+                    grid-template-columns: 1fr;
+                    align-items: center;
+                }
+
+                .toolbar > * {
+                    min-width: 0;
+                }
+
+                .chip {
+                    min-width: 0;
+                    justify-content: center;
+                    width: 100%;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+
+                .icon-btn {
+                    height: 36px;
+                    border-radius: 10px;
+                    width: 100%;
+                }
+
+                .sidebar {
+                    width: 100%;
+                    height: 100dvh;
+                    position: fixed;
+                    left: 0;
+                    top: 0;
+                    z-index: 200;
+                    background: rgba(248, 251, 255, 0.98);
+                    transform: translateX(-100%);
+                    transition: transform 200ms ease;
+                    display: flex;
+                    flex-direction: column;
+                    overflow-y: auto;
+                    padding: 60px 16px 16px;
+                    gap: 12px;
+                }
+
+                .sidebar:not(.collapsed) {
+                    transform: translateX(0);
+                }
+
+                .sidebar-header {
+                    width: 100%;
+                    height: 50px;
+                    position: fixed;
+                    left: 0;
+                    top: 0;
+                    z-index: 201;
+                    display: flex;
+                    align-items: center;
+                    padding: 0 14px;
+                    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.94));
+                    border-bottom: 1px solid var(--border);
+                    gap: 10px;
+                }
+
+                .sidebar-header.hidden {
+                    display: none;
+                }
+
+                .sidebar-title {
+                    font-size: 16px;
+                    margin: 0;
+                }
+
+                .sidebar-toggle-btn {
+                    width: 28px;
+                    height: 28px;
+                    margin-left: auto;
+                }
+
+                /* 隐藏桌面端顶栏，使用手机端顶栏 */
+                .topbar {
+                    display: none;
+                }
+
+                .mobile-topbar {
+                    display: flex;
+                }
+
+                /* sidebar打开时隐藏手机端顶栏 */
+                .mobile-topbar.hidden {
+                    display: none;
+                }
+
+                /* 聊天区域和composer从顶部开始，考虑mobile-topbar高度 */
+                .content {
+                    display: block;
+                    padding-top: var(--mobile-header-h);
+                    height: 100%;
+                }
+
+                .chat-panel {
+                    position: relative;
+                    left: 0;
+                    right: auto;
+                    top: auto;
+                    bottom: auto;
+                    height: 100%;
+                    min-height: 0;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+
+                .chat-panel.collapsed {
+                    left: 0;
+                }
+
+                .chat-container {
+                    max-width: none;
+                    padding: 0;
+                    flex: 1;
+                    min-height: 0;
+                }
+
+                .composer {
+                    position: relative;
+                    left: 0;
+                    right: auto;
+                    bottom: auto;
+                    width: 100%;
+                    flex: 0 0 auto;
+                }
+
+                .composer.collapsed {
+                    left: 0;
+                }
+
+                .button-grid {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 6px;
+                }
+
+                .model-card {
+                    padding: 12px;
+                }
+
+                .quick-btn {
+                    padding: 10px 12px;
+                    font-size: 13px;
+                }
+
+                .quick-list {
+                    gap: 8px;
+                }
+
+                .hint-list {
+                    padding: 12px;
+                }
+
+                .hint-list h2,
+                .hint-list h3 {
+                    font-size: 13px;
+                }
+
+                .hint-list p {
+                    font-size: 12px;
+                    line-height: 1.5;
+                }
+
+                .banner {
+                    padding: 10px 12px;
+                    font-size: 12px;
+                }
+
+                .banner strong {
+                    display: block;
+                    margin-bottom: 6px;
+                    font-size: 12px;
+                }
+
+                .row {
+                    width: 100%;
+                }
+
+                .chat-panel,
+                #chat-window {
+                    width: 100%;
+                    max-width: 100%;
+                    overflow-x: hidden;
+                }
+
+                .bubble-wrap {
+                    width: 100%;
+                    max-width: calc(100vw - 72px);
+                }
+
+                #chat-window {
+                    flex: 1;
+                    min-height: 0;
+                    padding: 14px 14px 10px;
+                }
+
+                .bubble {
+                    padding: 12px 14px;
+                    font-size: 13px;
+                    max-width: 100%;
+                }
+
+                .composer {
+                    padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+                }
+
+                .composer-tools {
+                    flex-wrap: nowrap;
+                    overflow-x: auto;
+                    padding-bottom: 2px;
+                    scrollbar-width: none;
+                }
+
+                .composer-tools::-webkit-scrollbar {
+                    display: none;
+                }
+
+                .tiny-btn {
+                    flex: 0 0 auto;
+                }
+
+                .input-shell {
+                    grid-template-columns: minmax(0, 1fr) auto;
+                }
+
+                #userInput {
+                    min-height: 40px;
+                    max-height: 96px;
+                    padding: 10px 12px;
+                    font-size: 13px;
+                }
+
+                #sendBtn {
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 12px;
+                }
+
+                .status {
+                    line-height: 1.5;
+                    font-size: 11px;
+                }
+            }
+
+            @media (max-height: 760px) {
+                .composer {
+                    padding-top: 10px;
+                    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+                }
+
+                .composer-tools {
+                    margin-bottom: 8px;
+                    gap: 6px;
+                }
+
+                .tiny-btn {
+                    padding: 6px 9px;
+                    font-size: 11px;
+                }
+
+                #userInput {
+                    min-height: 38px;
+                    max-height: 82px;
+                }
+
+                #sendBtn {
+                    width: 38px;
+                    height: 38px;
+                    font-size: 16px;
+                }
+
+                .bubble {
+                    font-size: 12px;
+                    line-height: 1.55;
+                }
+
+                .meta,
+                .status,
+                .banner {
+                    font-size: 11px;
+                }
+
+                #chat-window {
+                    padding-bottom: 8px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="shell">
+            <header class="sidebar-header" id="sidebar-header">
+                <h1 class="sidebar-title">旦说吴方</h1>
+                <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" onclick="toggleSidebar()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 18l-6-6 6-6"/>
+                    </svg>
+                </button>
+            </header>
+
+            <!-- 手机端顶栏：sidebar关闭时显示 -->
+            <header class="mobile-topbar" id="mobile-topbar">
+                <button class="mobile-open-btn" id="mobile-open-btn" onclick="toggleSidebar()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path d="M3 12h18M3 6h18M3 18h18"/>
+                    </svg>
+                </button>
+                <span class="mobile-title">旦说吴方</span>
+                <span class="mobile-direct-model" id="mobile-direct-model">拼音直读：<strong id="mobile-direct-model-label">加载中...</strong></span>
+            </header>
+
+            <header class="topbar" id="topbar">
+                <div class="toolbar-group">
+                    <span class="chip"><strong>检索源</strong> 上海词典 / 绍兴词典</span>
+                    <span class="chip" id="direct-model-chip"><strong>拼音直读</strong> 加载中...</span>
+                </div>
+                <button class="icon-btn" type="button" onclick="startRebuild()">重建索引</button>
+            </header>
+
+            <div class="content">
+                <aside class="sidebar" id="sidebar">
+                    <div class="hint-list">
+                        <h2>关于</h2>
+                        <p>上海 / 绍兴双词典检索，双 TTS 模型按需加载到 CPU / GPU，不用时可卸载。</p>
+                    </div>
+
+                    <div class="hint-list">
+                        <h2>使用方式</h2>
+                        <p>输入普通话释义、关键词或词条名。命中后会返回来源，并使用对应 TTS 模型朗读。</p>
+                    </div>
+
+                    <div class="banner">
+                        <strong>提示：</strong>
+                        结果会标明来源。上海词条走上海模型；绍兴词条走绍兴模型。直接输入拼音时使用当前“拼音直读模型”。
+                    </div>
+
+                    <div class="model-panel">
+                        <h3>模型控制</h3>
+                        <div class="model-card" id="card-shanghai">
+                            <div class="model-head">
+                                <span class="model-title">上海话</span>
+                                <span class="chip" id="status-shanghai">加载中...</span>
+                            </div>
+                            <div class="model-meta" id="meta-shanghai">等待状态</div>
+                            <div class="button-grid">
+                                <button class="small-btn" type="button" onclick="loadTtsModel('shanghai', 'cuda')">GPU</button>
+                                <button class="small-btn" type="button" onclick="loadTtsModel('shanghai', 'cpu')">CPU</button>
+                                <button class="small-btn" type="button" onclick="loadTtsModel('shanghai', 'unloaded')">卸载</button>
+                                <button class="small-btn" id="direct-btn-shanghai" type="button" onclick="setDirectModel('shanghai')">设为拼音直读</button>
+                            </div>
+                        </div>
+                        <div class="model-card" id="card-shaoxing">
+                            <div class="model-head">
+                                <span class="model-title">绍兴话</span>
+                                <span class="chip" id="status-shaoxing">加载中...</span>
+                            </div>
+                            <div class="model-meta" id="meta-shaoxing">等待状态</div>
+                            <div class="button-grid">
+                                <button class="small-btn" type="button" onclick="loadTtsModel('shaoxing', 'cuda')">GPU</button>
+                                <button class="small-btn" type="button" onclick="loadTtsModel('shaoxing', 'cpu')">CPU</button>
+                                <button class="small-btn" type="button" onclick="loadTtsModel('shaoxing', 'unloaded')">卸载</button>
+                                <button class="small-btn" id="direct-btn-shaoxing" type="button" onclick="setDirectModel('shaoxing')">设为拼音直读</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="quick-list">
+                        <h3>快捷提问</h3>
+                        <button class="quick-btn" type="button" onclick="fillPrompt('自行车怎么说')">
+                            自行车怎么说
+                            <small>走普通话释义检索</small>
+                        </button>
+                        <button class="quick-btn" type="button" onclick="fillPrompt('太阳')">
+                            太阳
+                            <small>可同时看到上海/绍兴侧结果</small>
+                        </button>
+                        <button class="quick-btn" type="button" onclick="fillPrompt('[太阳]')">
+                            [太阳]
+                            <small>直接按词条查询，命中上海词典时可读音</small>
+                        </button>
+                        <button class="quick-btn" type="button" onclick="fillPrompt('shi33 sa55 tha55 yan52')">
+                            直接读拼音
+                            <small>输入吴语拼音可直接尝试 TTS</small>
+                        </button>
+                    </div>
+
+                    <div class="hint-list">
+                        <h3>当前行为</h3>
+                        <p>缺失 embedding 时会自动重建索引。缺大模型或 TTS ckpt 时会降级为可查询模式。</p>
+                    </div>
+                </aside>
+
+                <section class="chat-panel" id="chat-panel">
+                    <div class="chat-container">
+                        <div id="chat-window">
+                            <div class="row ai">
+                                <div class="avatar ai">旦</div>
+                                <div class="bubble-wrap">
+                                    <div class="bubble">
+                                        输入普通话释义、词条名，或直接输入吴语拼音。上海、绍兴结果都支持按来源调用对应 TTS。
+                                    </div>
+                                    <div class="meta"><span>系统就绪</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <footer class="composer" id="composer">
+                        <div class="composer-inner">
+                            <div class="composer-tools">
+                                <button class="tiny-btn" type="button" onclick="fillPrompt('下载')">下载最近音频</button>
+                                <button class="tiny-btn" type="button" onclick="fillPrompt('再读一遍')">重播最近音频</button>
+                                <button class="tiny-btn" type="button" onclick="fillPrompt('月亮')">试一个常见词</button>
+                            </div>
+                            <div class="input-shell">
+                                <textarea
+                                    id="userInput"
+                                    placeholder="输入普通话释义、词条名，或者直接输入吴语拼音"
+                                ></textarea>
+                                <button id="sendBtn" type="button" onclick="sendMessage()">↑</button>
+                            </div>
+                            <div class="status">按 Enter 发送，Shift+Enter 换行。</div>
+                        </div>
+                    </footer>
+                </section>
+            </div>
+        </div>
+
+        <div class="modal" id="rebuild-modal">
+            <div class="modal-card">
+                <div class="modal-head">
+                    <strong>索引重建状态</strong>
+                    <button class="icon-btn" type="button" onclick="closeRebuildModal()">关闭</button>
+                </div>
+                <div id="rebuild-log">等待中...</div>
+                <div class="modal-foot">
+                    <span class="chip"><strong>自动化</strong> 缺 embeddings 时会自动构建</span>
+                    <button class="icon-btn" type="button" onclick="closeRebuildModal()">完成</button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            const chatWindow = document.getElementById("chat-window");
+            const userInput = document.getElementById("userInput");
+            const sendBtn = document.getElementById("sendBtn");
+            const rebuildModal = document.getElementById("rebuild-modal");
+            const rebuildLog = document.getElementById("rebuild-log");
+            const directModelChip = document.getElementById("direct-model-chip");
+            let rebuildTimer = null;
+            let ttsStatusCache = null;
+            const sidebar = document.getElementById("sidebar");
+            const sidebarHeader = document.getElementById("sidebar-header");
+            const sidebarToggleBtn = document.getElementById("sidebar-toggle-btn");
+            const topbar = document.getElementById("topbar");
+            const chatPanel = document.getElementById("chat-panel");
+            const composer = document.getElementById("composer");
+            const mobileTopbar = document.getElementById("mobile-topbar");
+
+            function isMobile() {
+                return window.matchMedia("(max-width: 640px)").matches;
+            }
+
+            function toggleSidebar() {
+                sidebar.classList.toggle("collapsed");
+                sidebarToggleBtn.classList.toggle("collapsed");
+                topbar.classList.toggle("collapsed");
+                chatPanel.classList.toggle("collapsed");
+                composer.classList.toggle("collapsed");
+                if (isMobile()) {
+                    const isCollapsed = sidebar.classList.contains("collapsed");
+                    if (mobileTopbar) mobileTopbar.classList.toggle("hidden", !isCollapsed);
+                    if (sidebarHeader) sidebarHeader.classList.toggle("hidden", isCollapsed);
+                }
+            }
+
+            // 手机端默认关闭侧边栏
+            if (isMobile()) {
+                sidebar.classList.add("collapsed");
+                sidebarToggleBtn.classList.add("collapsed");
+                chatPanel.classList.add("collapsed");
+                composer.classList.add("collapsed");
+                if (sidebarHeader) sidebarHeader.classList.add("hidden");
+            }
+
+            function nowLabel() {
+                return new Date().toLocaleTimeString("zh-CN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                });
+            }
+
+            function scrollToBottom() {
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            }
+
+            function fillPrompt(text) {
+                userInput.value = text;
+                userInput.focus();
+            }
+
+            function shouldAutoFocusComposer() {
+                return window.matchMedia("(min-width: 901px)").matches;
+            }
+
+            function addMessage(role, html, opts = {}) {
+                const row = document.createElement("div");
+                row.className = `row ${role}`;
+
+                const avatar = document.createElement("div");
+                avatar.className = `avatar ${role}`;
+                avatar.textContent = role === "user" ? "我" : "旦";
+
+                const wrap = document.createElement("div");
+                wrap.className = "bubble-wrap";
+
+                const bubble = document.createElement("div");
+                bubble.className = "bubble";
+                if (opts.isHtml) {
+                    bubble.innerHTML = html;
+                } else {
+                    bubble.textContent = html;
+                }
+
+                wrap.appendChild(bubble);
+
+                if (opts.audio) {
+                    const audio = document.createElement("audio");
+                    audio.controls = true;
+                    audio.src = opts.audio;
+                    wrap.appendChild(audio);
+                }
+
+                const meta = document.createElement("div");
+                meta.className = "meta";
+                meta.innerHTML = `<span>${nowLabel()}</span>`;
+                wrap.appendChild(meta);
+
+                row.appendChild(avatar);
+                row.appendChild(wrap);
+                chatWindow.appendChild(row);
+                scrollToBottom();
+                return row;
+            }
+
+            function addThinking() {
+                return addMessage("ai", "思考中……", { isHtml: false, className: "thinking" });
+            }
+
+            async function sendMessage(customText = null) {
+                const text = (customText ?? userInput.value).trim();
+                if (!text) {
+                    return;
+                }
+
+                addMessage("user", text);
+                userInput.value = "";
+                sendBtn.disabled = true;
+                const pending = addMessage("ai", "思考中……", { isHtml: false, className: "thinking" });
+
+                try {
+                    const response = await fetch("/api/chat", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ message: text }),
+                    });
+                    const data = await response.json();
+                    pending.remove();
+                    addMessage("ai", data.text || "没有返回内容。", {
+                        isHtml: true,
+                        audio: data.audio || "",
+                    });
+                } catch (error) {
+                    pending.remove();
+                    addMessage("ai", `请求失败：${error.message || error}`, { isHtml: false });
+                } finally {
+                    sendBtn.disabled = false;
+                    if (shouldAutoFocusComposer()) {
+                        userInput.focus();
+                    }
+                }
+            }
+
+            function modelMetaText(status) {
+                if (!status) {
+                    return "状态未知";
+                }
+                const ready = status.ready ? "资源齐全" : "缺少文件";
+                const device = status.device || "unloaded";
+                const step = status.checkpoint_step || "?";
+                return `${ready} / 状态 ${device} / step ${step}`;
+            }
+
+            function renderTtsStatus(tts) {
+                ttsStatusCache = tts || null;
+                const models = (tts && tts.models) || {};
+                const activeDirect = (tts && tts.active_direct_model) || "";
+
+                for (const modelName of ["shanghai", "shaoxing"]) {
+                    const status = models[modelName];
+                    const statusEl = document.getElementById(`status-${modelName}`);
+                    const metaEl = document.getElementById(`meta-${modelName}`);
+                    const directBtn = document.getElementById(`direct-btn-${modelName}`);
+                    const modelCard = document.getElementById(`card-${modelName}`);
+                    
+                    if (!statusEl || !metaEl || !directBtn || !modelCard) {
+                        continue;
+                    }
+                    
+                    if (!status) {
+                        statusEl.innerHTML = "<strong>不可用</strong>";
+                        metaEl.textContent = "未发现模型配置";
+                        directBtn.classList.remove("active");
+                        const deviceBtns = modelCard.querySelectorAll(".button-grid .small-btn");
+                        deviceBtns.forEach((btn, idx) => btn.classList.remove("active"));
+                        continue;
+                    }
+                    
+                    const badge = status.device === "unloaded" ? "UNLOADED" : (status.device ? status.device.toUpperCase() : "UNLOADED");
+                    statusEl.innerHTML = `<strong>${badge}</strong>`;
+                    metaEl.textContent = modelMetaText(status);
+                    directBtn.classList.toggle("active", activeDirect === modelName);
+                    directBtn.textContent = activeDirect === modelName ? "当前拼音直读" : "设为拼音直读";
+                    
+                    // 高亮当前设备按钮
+                    const deviceBtns = modelCard.querySelectorAll(".button-grid .small-btn");
+                    deviceBtns.forEach((btn, idx) => {
+                        let isActive = false;
+                        if (status.device === "cuda" && idx === 0) isActive = true;
+                        if (status.device === "cpu" && idx === 1) isActive = true;
+                        if (status.device === "unloaded" && idx === 2) isActive = true;
+                        btn.classList.toggle("active", isActive);
+                    });
+                }
+
+                if (directModelChip) {
+                    const labelMap = { shanghai: "上海话", shaoxing: "绍兴话" };
+                    const modelLabel = labelMap[activeDirect] || activeDirect || "未设置";
+                    directModelChip.innerHTML = `<strong>拼音直读</strong> ${modelLabel}`;
+
+                    // 更新手机端顶栏的拼音直读显示
+                    const mobileDirectLabel = document.getElementById("mobile-direct-model-label");
+                    if (mobileDirectLabel) {
+                        mobileDirectLabel.textContent = modelLabel;
+                    }
+                }
+            }
+
+            async function refreshTtsStatus() {
+                const response = await fetch("/api/tts/status");
+                const data = await response.json();
+                if (!data.ok) {
+                    throw new Error(data.error || "读取 TTS 状态失败");
+                }
+                renderTtsStatus(data.tts || {});
+                return data.tts || {};
+            }
+
+            async function loadTtsModel(model, device) {
+                const card = document.getElementById(`card-${model}`);
+                const deviceBtnIndex = device === "cuda" ? 0 : device === "cpu" ? 1 : 2;
+                const btn = card ? card.querySelectorAll(".button-grid .small-btn")[deviceBtnIndex] : null;
+                let originalText = "";
+                let originalDisabled = false;
+
+                try {
+                    if (btn) {
+                        originalText = btn.textContent;
+                        originalDisabled = btn.disabled;
+                        btn.textContent = "加载中...";
+                        btn.disabled = true;
+                        btn.classList.add("active");
+                    }
+
+                    const response = await fetch("/api/tts/load", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ model, device }),
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.ok) {
+                        throw new Error(data.error || `切换 ${model} 到 ${device} 失败`);
+                    }
+                    renderTtsStatus(data.tts || {});
+                    const action = device === "unloaded" ? "已卸载" : `已切到 ${device.toUpperCase()}`;
+                    addMessage("ai", `${model} ${action}`, { isHtml: false });
+                } catch (error) {
+                    addMessage("ai", `模型加载失败：${error.message || error}`, { isHtml: false });
+                } finally {
+                    if (btn) {
+                        btn.textContent = originalText;
+                        btn.disabled = originalDisabled;
+                        btn.classList.remove("active");
+                        refreshTtsStatus();
+                    }
+                }
+            }
+
+            async function setDirectModel(model) {
+                try {
+                    const response = await fetch("/api/tts/direct_model", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ model }),
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.ok) {
+                        throw new Error(data.error || `设置 ${model} 为拼音直读模型失败`);
+                    }
+                    renderTtsStatus(data.tts || {});
+                } catch (error) {
+                    addMessage("ai", `切换拼音直读模型失败：${error.message || error}`, { isHtml: false });
+                }
+            }
+
+            async function quickRead(headword, source = "shanghai_csv") {
+                try {
+                    const response = await fetch("/api/tts/read_headword", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ headword, source }),
+                    });
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.text || "词条朗读失败");
+                    }
+                    addMessage("ai", data.text || "没有返回内容。", {
+                        isHtml: true,
+                        audio: data.audio || "",
+                    });
+                } catch (error) {
+                    addMessage("ai", `词条朗读失败：${error.message || error}`, { isHtml: false });
+                }
+            }
+
+            function closeRebuildModal() {
+                rebuildModal.classList.remove("show");
+                if (rebuildTimer) {
+                    clearTimeout(rebuildTimer);
+                    rebuildTimer = null;
+                }
+            }
+
+            async function pollRebuildStatus() {
+                try {
+                    const response = await fetch("/api/rebuild_index/status");
+                    const data = await response.json();
+                    const status = data.status || {};
+                    const logs = Array.isArray(status.progress) ? status.progress : [];
+                    const pieces = [];
+                    if (logs.length) {
+                        pieces.push(logs.join("\n"));
+                    }
+                    if (status.error) {
+                        pieces.push(`\nERROR: ${status.error}`);
+                    }
+                    if (status.done) {
+                        pieces.push("\n完成。");
+                    }
+                    rebuildLog.textContent = pieces.join("\n") || "处理中...";
+                    if (status.running) {
+                        rebuildTimer = setTimeout(pollRebuildStatus, 1200);
+                    }
+                } catch (error) {
+                    rebuildLog.textContent = `状态查询失败：${error.message || error}`;
+                }
+            }
+
+            async function startRebuild() {
+                rebuildModal.classList.add("show");
+                rebuildLog.textContent = "准备启动重建...";
+                try {
+                    const response = await fetch("/api/rebuild_index", { method: "POST" });
+                    const data = await response.json();
+                    if (data.ok) {
+                        rebuildLog.textContent = data.message || "已启动";
+                        pollRebuildStatus();
+                    } else {
+                        rebuildLog.textContent = data.error || "启动失败";
+                    }
+                } catch (error) {
+                    rebuildLog.textContent = `启动失败：${error.message || error}`;
+                }
+            }
+
+            userInput.addEventListener("keydown", (event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            refreshTtsStatus().catch((error) => {
+                addMessage("ai", `TTS 状态读取失败：${error.message || error}`, { isHtml: false });
+            });
+
+            if (shouldAutoFocusComposer()) {
+                userInput.focus();
+            }
+        </script>
+    </body>
+</html>

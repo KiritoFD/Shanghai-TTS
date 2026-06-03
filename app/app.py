@@ -24,7 +24,7 @@ from typing import Any
 import pandas as pd
 import requests
 import torch
-from flask import Flask, jsonify, render_template, request, send_from_directory, session
+from flask import Flask, jsonify, request, send_from_directory, session
 from peft import PeftModel
 from cleaner_model import CleanerCoreExtractor
 from dictionary_sources import (
@@ -61,6 +61,7 @@ ZH_PROMPT = (
 ROOT = Path(__file__).resolve().parent
 REPO_ROOT = ROOT.parent
 STATIC_DIR = ROOT / "static"
+FRONTEND_DIR = REPO_ROOT / "frontend"
 LOG_DIR = ROOT / "logs"
 RUNTIME_CONFIG = load_runtime_config()
 CHECKPOINT_PATH = Path(RUNTIME_CONFIG["llm"]["lora_checkpoint_dir"])
@@ -848,7 +849,13 @@ _rebuild_status: dict[str, Any] = {"running": False, "progress": [], "error": No
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    index_html = (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
+    return app.response_class(index_html, mimetype="text/html")
+
+
+@app.route("/frontend/<path:filename>")
+def frontend_asset(filename: str):
+    return send_from_directory(str(FRONTEND_DIR), filename)
 
 
 @app.after_request
