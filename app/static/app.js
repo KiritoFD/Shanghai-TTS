@@ -16,9 +16,34 @@
         document.querySelectorAll(".topbar button, .sidebar button, .composer button, .modal button"),
     );
 
+    const stageLabels = {
+        lookup: ["规范化查询...", "词典命中与召回...", "整理结果..."],
+        rag_mt: ["规范化查询...", "翻译增强中...", "补充词典结果...", "整理结果..."],
+        tts: ["准备请求...", "检查模型与词条...", "生成音频..."],
+        status: ["处理中..."],
+    };
+
+    const timingLabels = {
+        total: "总耗时",
+        parse: "解析",
+        build_terms: "展词",
+        exact_hits: "精确命中",
+        shanghai_recall: "上海召回",
+        shaoxing_lookup: "绍兴检索",
+        translate: "翻译",
+        context_lookup: "上下文",
+        rag_mt_total: "增强链路",
+        lookup_total: "查询链路",
+    };
+
+    const modelLabelMap = {
+        shanghai: "上海话",
+        shaoxing: "绍兴话",
+    };
+
     let rebuildTimer = null;
-    let pipelineMode = localStorage.getItem("shanghai_tts_pipeline_mode") || "lookup";
     let activeUiRequests = 0;
+    let pipelineMode = localStorage.getItem("shanghai_tts_pipeline_mode") || "lookup";
 
     function nowLabel() {
         return new Date().toLocaleTimeString("zh-CN", {
@@ -48,10 +73,6 @@
         userInput.focus();
     }
 
-    function shouldAutoFocusComposer() {
-        return window.matchMedia("(min-width: 901px)").matches;
-    }
-
     function setPipelineMode(mode) {
         pipelineMode = mode === "rag_mt" ? "rag_mt" : "lookup";
         localStorage.setItem("shanghai_tts_pipeline_mode", pipelineMode);
@@ -61,27 +82,21 @@
         if (composerStatus) {
             composerStatus.textContent =
                 pipelineMode === "rag_mt"
-                    ? "当前为翻译增强模式，响应会更慢。按 Enter 发送，Shift+Enter 换行。"
+                    ? "当前为翻译增强模式。响应通常更慢，但会补充更强的查询理解。按 Enter 发送，Shift+Enter 换行。"
                     : "当前为查询优先模式。按 Enter 发送，Shift+Enter 换行。";
         }
     }
 
-    function setLiveStatus(label, detail = "") {
+    function setLiveStatus(label, detail = "", state = "idle") {
         if (!liveStatusChip) {
             return;
         }
-        const stateMap = {
-            "处理中": "busy",
-            "完成": "done",
-            "失败": "error",
-            "空闲": "idle",
-        };
-        liveStatusChip.dataset.state = stateMap[label] || "idle";
-        liveStatusChip.innerHTML = `<strong>请求</strong> ${label}${detail ? ` · ${detail}` : ""}`;
+        liveStatusChip.dataset.state = state;
+        liveStatusChip.innerHTML = `<strong>请求</strong><span>${label}${detail ? ` · ${detail}` : ""}</span>`;
     }
 
-    function setUiBusy(isBusy) {
-        activeUiRequests = Math.max(0, activeUiRequests + (isBusy ? 1 : -1));
+    function setUiBusy(increment) {
+        activeUiRequests = Math.max(0, activeUiRequests + increment);
         const busy = activeUiRequests > 0;
         document.body.classList.toggle("busy", busy);
         staticActionButtons.forEach((button) => {
@@ -91,19 +106,10 @@
             button.disabled = busy;
         });
         userInput.disabled = busy;
-        if (!busy && shouldAutoFocusComposer()) {
-            userInput.focus();
-        }
     }
 
-    function createPendingMessage(kind = "lookup") {
-        const stagesByKind = {
-            lookup: ["规范化查询...", "词典命中与召回...", "整理结果..."],
-            rag_mt: ["规范化查询...", "翻译增强中...", "补充词典结果...", "整理结果..."],
-            tts: ["准备请求...", "加载模型或查词...", "生成音频..."],
-            status: ["处理中..."],
-        };
-        const stages = stagesByKind[kind] || stagesByKind.status;
+    function createPendingMessage(kind = "status") {
+        const stages = stageLabels[kind] || stageLabels.status;
         let stageIndex = 0;
         const row = addMessage(
             "ai",
@@ -122,12 +128,6 @@
                 clearInterval(timer);
                 row.remove();
                 syncEmptyState();
-            },
-            fail(message) {
-                clearInterval(timer);
-                if (stageEl) {
-                    stageEl.textContent = message;
-                }
             },
         };
     }
@@ -149,22 +149,10 @@
         if (!entries.length) {
             return html;
         }
-        const labels = {
-            total: "总耗时",
-            parse: "解析",
-            build_terms: "展词",
-            exact_hits: "精确命中",
-            shanghai_recall: "上海召回",
-            shaoxing_lookup: "绍兴检索",
-            translate: "翻译",
-            context_lookup: "上下文",
-            rag_mt_total: "翻译链路",
-            lookup_total: "词典链路",
-        };
         const pills = entries
             .map(
                 ([key, value]) =>
-                    `<span class="timing-pill">${labels[key] || key} ${Math.round(Number(value))}ms</span>`,
+                    `<span class="timing-pill">${timingLabels[key] || key} ${Math.round(Number(value))}ms</span>`,
             )
             .join("");
         return `${html}<div class="timing-strip">${pills}</div>`;
@@ -264,7 +252,6 @@
         } else {
             bubble.textContent = html;
         }
-
         wrap.appendChild(bubble);
 
         if (opts.audio) {
@@ -295,9 +282,9 @@
 
         addMessage("user", text);
         userInput.value = "";
-        setUiBusy(true);
+        setUiBusy(1);
         const pending = createPendingMessage(pipelineMode === "rag_mt" ? "rag_mt" : "lookup");
-        setLiveStatus("处理中", pipelineMode === "rag_mt" ? "翻译增强" : "查询优先");
+        setLiveStatus("处理中", pipelineMode === "rag_mt" ? "翻译增强" : "查询优先", "busy");
         await nextFrame();
 
         try {
@@ -318,24 +305,21 @@
             if (data.audio) {
                 refreshTtsStatus().catch(() => {});
             }
-            if (composerStatus) {
-                const totalMs = data.timings_ms && data.timings_ms.total ? Number(data.timings_ms.total) : null;
-                const modeLabel = pipelineMode === "rag_mt" ? "翻译增强" : "查询优先";
-                composerStatus.textContent = totalMs
-                    ? `${modeLabel} | ${Math.round(totalMs)}ms`
-                    : `${modeLabel} | 已完成`;
-            }
             const totalMs = data.timings_ms && data.timings_ms.total ? Math.round(Number(data.timings_ms.total)) : null;
-            setLiveStatus("完成", totalMs ? `${totalMs}ms` : "");
+            if (composerStatus) {
+                const modeLabel = pipelineMode === "rag_mt" ? "翻译增强" : "查询优先";
+                composerStatus.textContent = totalMs ? `${modeLabel} | ${totalMs}ms` : `${modeLabel} | 已完成`;
+            }
+            setLiveStatus("完成", totalMs ? `${totalMs}ms` : "", "done");
         } catch (error) {
             pending.finish();
             addMessage("ai", `请求失败：${error.message || error}`, { isHtml: false });
             if (composerStatus) {
                 composerStatus.textContent = `请求失败：${error.message || error}`;
             }
-            setLiveStatus("失败");
+            setLiveStatus("失败", "", "error");
         } finally {
-            setUiBusy(false);
+            setUiBusy(-1);
         }
     }
 
@@ -360,43 +344,47 @@
             const directBtn = document.getElementById(`direct-btn-${modelName}`);
             const cardEl = document.getElementById(`card-${modelName}`);
             const loadButtons = Array.from(document.querySelectorAll(`[data-model-load="${modelName}"]`));
-            if (!statusEl || !metaEl || !directBtn) {
+            if (!statusEl || !metaEl || !directBtn || !cardEl) {
                 continue;
             }
+
             if (!status) {
                 statusEl.innerHTML = "<strong>不可用</strong>";
                 statusEl.dataset.state = "error";
                 metaEl.textContent = "未发现模型配置";
                 directBtn.classList.remove("direct-active");
-                if (cardEl) {
-                    cardEl.dataset.device = "unloaded";
-                }
+                directBtn.setAttribute("aria-pressed", "false");
+                cardEl.dataset.device = "unloaded";
                 loadButtons.forEach((button) => {
                     button.classList.remove("active");
                     button.setAttribute("aria-pressed", "false");
                 });
                 continue;
             }
-            const badge = status.device === "unloaded" ? "UNLOADED" : `${status.device.toUpperCase()}`;
+
+            const device = status.device || "unloaded";
+            const badge = device === "unloaded" ? "UNLOADED" : device.toUpperCase();
             statusEl.innerHTML = `<strong>${badge}</strong>`;
-            statusEl.dataset.state = status.device === "unloaded" ? "idle" : "done";
+            statusEl.dataset.state = device === "unloaded" ? "idle" : "done";
             metaEl.textContent = modelMetaText(status);
-            if (cardEl) {
-                cardEl.dataset.device = status.device || "unloaded";
-            }
+            cardEl.dataset.device = device;
+
             loadButtons.forEach((button) => {
-                const isActive = button.getAttribute("data-device") === status.device;
+                const isActive = button.getAttribute("data-device") === device;
                 button.classList.toggle("active", isActive);
                 button.setAttribute("aria-pressed", isActive ? "true" : "false");
             });
-            directBtn.classList.toggle("direct-active", activeDirect === modelName);
-            directBtn.setAttribute("aria-pressed", activeDirect === modelName ? "true" : "false");
-            directBtn.textContent = activeDirect === modelName ? "当前拼音直读" : "设为拼音直读";
+
+            const isDirect = activeDirect === modelName;
+            directBtn.classList.toggle("direct-active", isDirect);
+            directBtn.setAttribute("aria-pressed", isDirect ? "true" : "false");
+            directBtn.textContent = isDirect ? "当前拼音直读" : "设为拼音直读";
         }
 
         if (directModelChip) {
-            const labelMap = { shanghai: "上海话", shaoxing: "绍兴话" };
-            directModelChip.innerHTML = `<strong>拼音直读</strong> ${labelMap[activeDirect] || activeDirect || "未设置"}`;
+            const label = modelLabelMap[activeDirect] || activeDirect || "未设置";
+            directModelChip.dataset.directModel = activeDirect || "";
+            directModelChip.innerHTML = `<strong>拼音直读</strong><span>${label}</span>`;
         }
     }
 
@@ -411,9 +399,9 @@
     }
 
     async function loadTtsModel(model, device) {
-        setUiBusy(true);
+        setUiBusy(1);
         const pending = createPendingMessage("status");
-        setLiveStatus("处理中", `${model} ${device}`);
+        setLiveStatus("处理中", `${modelLabelMap[model] || model} ${device.toUpperCase()}`, "busy");
         await nextFrame();
         try {
             const response = await fetch("/api/tts/load", {
@@ -428,21 +416,21 @@
             pending.finish();
             renderTtsStatus(data.tts || {});
             const action = device === "unloaded" ? "已卸载" : `已切到 ${device.toUpperCase()}`;
-            addMessage("ai", `${model} ${action}`, { isHtml: false });
-            setLiveStatus("完成", action);
+            addMessage("ai", `${modelLabelMap[model] || model} ${action}`, { isHtml: false });
+            setLiveStatus("完成", action, "done");
         } catch (error) {
             pending.finish();
-            addMessage("ai", `模型加载失败：${error.message || error}`, { isHtml: false });
-            setLiveStatus("失败");
+            addMessage("ai", `模型切换失败：${error.message || error}`, { isHtml: false });
+            setLiveStatus("失败", "", "error");
         } finally {
-            setUiBusy(false);
+            setUiBusy(-1);
         }
     }
 
     async function setDirectModel(model) {
-        setUiBusy(true);
+        setUiBusy(1);
         const pending = createPendingMessage("status");
-        setLiveStatus("处理中", "拼音直读切换");
+        setLiveStatus("处理中", "切换拼音直读", "busy");
         await nextFrame();
         try {
             const response = await fetch("/api/tts/direct_model", {
@@ -456,20 +444,20 @@
             }
             pending.finish();
             renderTtsStatus(data.tts || {});
-            setLiveStatus("完成", `${model} 拼音直读`);
+            setLiveStatus("完成", modelLabelMap[model] || model, "done");
         } catch (error) {
             pending.finish();
-            addMessage("ai", `切换拼音直读模型失败：${error.message || error}`, { isHtml: false });
-            setLiveStatus("失败");
+            addMessage("ai", `拼音直读切换失败：${error.message || error}`, { isHtml: false });
+            setLiveStatus("失败", "", "error");
         } finally {
-            setUiBusy(false);
+            setUiBusy(-1);
         }
     }
 
     async function quickRead(headword, source = "shanghai_csv") {
-        setUiBusy(true);
+        setUiBusy(1);
         const pending = createPendingMessage("tts");
-        setLiveStatus("处理中", "词条朗读");
+        setLiveStatus("处理中", "词条朗读", "busy");
         await nextFrame();
         try {
             const response = await fetch("/api/tts/read_headword", {
@@ -488,13 +476,13 @@
             });
             refreshTtsStatus().catch(() => {});
             const totalMs = data.timings_ms && data.timings_ms.total ? Math.round(Number(data.timings_ms.total)) : null;
-            setLiveStatus("完成", totalMs ? `${totalMs}ms` : "词条朗读");
+            setLiveStatus("完成", totalMs ? `${totalMs}ms` : "词条朗读", "done");
         } catch (error) {
             pending.finish();
             addMessage("ai", `词条朗读失败：${error.message || error}`, { isHtml: false });
-            setLiveStatus("失败");
+            setLiveStatus("失败", "", "error");
         } finally {
-            setUiBusy(false);
+            setUiBusy(-1);
         }
     }
 
@@ -556,13 +544,8 @@
         startRebuild();
     });
 
-    closeRebuildBtn.addEventListener("click", () => {
-        closeRebuildModal();
-    });
-
-    finishRebuildBtn.addEventListener("click", () => {
-        closeRebuildModal();
-    });
+    closeRebuildBtn.addEventListener("click", closeRebuildModal);
+    finishRebuildBtn.addEventListener("click", closeRebuildModal);
 
     userInput.addEventListener("keydown", (event) => {
         if (event.key === "Enter" && !event.shiftKey) {
@@ -607,9 +590,11 @@
     });
 
     setPipelineMode(pipelineMode);
-    setLiveStatus("空闲");
+    setLiveStatus("空闲", "", "idle");
     syncEmptyState();
     refreshTtsStatus().catch((error) => {
         addMessage("ai", `TTS 状态读取失败：${error.message || error}`, { isHtml: false });
+        setLiveStatus("失败", "TTS 状态", "error");
     });
+
 })();
