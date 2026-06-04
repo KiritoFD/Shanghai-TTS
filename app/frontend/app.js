@@ -107,10 +107,53 @@ function addMessage(role, text, options = {}) {
   wrap.appendChild(bubble);
 
   if (options.audio) {
+    const audioContainer = document.createElement("div");
+    audioContainer.className = "audio-container";
+
     const audio = document.createElement("audio");
     audio.controls = true;
     audio.src = options.audio;
-    wrap.appendChild(audio);
+
+    const speedBtn = document.createElement("button");
+    speedBtn.className = "speed-toggle-btn";
+    speedBtn.type = "button";
+    speedBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+      <span>倍速 1.0x</span>
+    `;
+
+    const speeds = [1.0, 0.75, 0.5, 0.25];
+    let speedIndex = 0;
+
+    const applySpeed = () => {
+      audio.playbackRate = speeds[speedIndex];
+    };
+
+    const updateUI = () => {
+      const speed = speeds[speedIndex];
+      applySpeed();
+      speedBtn.querySelector("span").textContent = `倍速 ${speed.toFixed(2)}x`;
+      if (speed === 1.0) {
+        speedBtn.classList.remove("slow");
+      } else {
+        speedBtn.classList.add("slow");
+      }
+    };
+
+    speedBtn.addEventListener("click", () => {
+      speedIndex = (speedIndex + 1) % speeds.length;
+      updateUI();
+    });
+
+    // Handle all events where browsers tend to reset the playbackRate
+    audio.addEventListener("play", applySpeed);
+    audio.addEventListener("playing", applySpeed);
+    audio.addEventListener("canplay", applySpeed);
+    audio.addEventListener("loadedmetadata", applySpeed);
+    audio.addEventListener("loadeddata", applySpeed);
+
+    audioContainer.append(audio, speedBtn);
+    wrap.appendChild(audioContainer);
   }
 
   const meta = document.createElement("div");

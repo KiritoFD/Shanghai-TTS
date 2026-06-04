@@ -731,10 +731,18 @@ body {
 }
 
 /* Audio Player inside Messages */
+.audio-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
 audio {
   width: min(320px, 100%);
   height: 36px;
-  margin-top: 8px;
   border-radius: 99px;
   background: var(--surface-active);
   outline: none;
@@ -742,6 +750,41 @@ audio {
 
 audio::-webkit-media-controls-panel {
   background-color: var(--surface-active);
+}
+
+.speed-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 99px;
+  border: 1px solid var(--border-light);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+}
+
+.speed-toggle-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  color: var(--text-main);
+  transform: translateY(-1px);
+}
+
+.speed-toggle-btn:active {
+  transform: translateY(1px);
+}
+
+.speed-toggle-btn.slow {
+  background: var(--primary-soft);
+  border-color: rgba(37, 99, 235, 0.2);
+  color: var(--primary);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
 }
 
 /* Result Cards Generated from Backend Search */

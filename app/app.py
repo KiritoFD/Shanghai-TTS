@@ -142,7 +142,7 @@ def ensure_tts_model_loaded(model_name: str | None = None, device: str | None = 
     module = _tts_module()
     load_model = getattr(module, "load_model", None)
     if callable(load_model):
-        target_device = device or "cpu"
+        target_device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         return load_model(model_name, device=target_device)
     return None
 
